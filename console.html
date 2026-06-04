@@ -1,0 +1,813 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TITAN HELIX — Live Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E0E10; --bg1:#15151A; --bg2:#1C1C24; --bg3:#232330;
+    --line:rgba(255,255,255,.08); --line2:rgba(255,255,255,.14);
+    --ink:#ECEFF1; --ink2:#B8BCC4; --ink3:#6F7480;
+    --accent:#FF6B35; --green:#7CF3A0; --amber:#FFB454; --red:#FF4757;
+    --purple:#B388FF; --blue:#67D9FF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:'Sora',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  button{font-family:inherit;cursor:pointer;}
+
+  /* ── layout ── */
+  .app{display:flex;flex-direction:column;height:100vh;}
+  header{display:flex;align-items:center;gap:16px;padding:11px 18px;
+    border-bottom:1px solid var(--line);background:rgba(14,14,16,.7);
+    backdrop-filter:blur(12px);z-index:30;flex-wrap:wrap;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .logo{width:30px;height:30px;border-radius:7px;
+    background:linear-gradient(135deg,var(--accent),#FF4757);
+    display:grid;place-items:center;font-family:'Fraunces',serif;font-weight:600;
+    color:#fff;font-size:16px;box-shadow:0 0 22px rgba(255,107,53,.45);}
+  .brand h1{font-family:'Fraunces',serif;font-weight:500;font-size:16px;}
+  .brand .sub{font-size:9.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.16em;}
+
+  .controls{display:flex;align-items:center;gap:9px;margin-left:auto;flex-wrap:wrap;}
+  .pill{display:flex;align-items:center;gap:6px;font-size:11px;padding:5px 10px;
+    border:1px solid var(--line2);border-radius:7px;color:var(--ink2);
+    font-family:'JetBrains Mono',monospace;}
+  .pill .dot{width:7px;height:7px;border-radius:50%;background:var(--ink3);}
+  .pill.live .dot{background:var(--green);animation:pulse 1.8s infinite;}
+  .pill.splunk{border-color:rgba(124,243,160,.35);color:var(--green);}
+  .pill.sample{border-color:rgba(255,180,84,.35);color:var(--amber);}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(124,243,160,.5);}70%{box-shadow:0 0 0 7px rgba(124,243,160,0);}100%{box-shadow:0 0 0 0 rgba(124,243,160,0);}}
+
+  .btn{font-size:11.5px;padding:6px 12px;border-radius:7px;border:1px solid var(--line2);
+    background:var(--bg2);color:var(--ink2);transition:all .15s;}
+  .btn:hover{border-color:var(--accent);color:var(--ink);}
+  .btn.on{background:rgba(124,243,160,.12);border-color:rgba(124,243,160,.4);color:var(--green);}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),#FF4757);
+    color:#fff;border:none;font-weight:500;box-shadow:0 0 18px rgba(255,107,53,.35);}
+  .btn.primary:hover{box-shadow:0 0 26px rgba(255,107,53,.55);}
+  .btn.primary:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;}
+  select.btn{appearance:none;padding-right:24px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10'><path d='M1 3l4 4 4-4' stroke='%236F7480' fill='none' stroke-width='1.4'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center;}
+
+  .body{flex:1;display:flex;min-height:0;position:relative;}
+  .stage{flex:1;position:relative;overflow:hidden;}
+  #graph{width:100%;height:100%;display:block;cursor:grab;}
+  #graph.dragging{cursor:grabbing;}
+
+  .bg-grid{position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(rgba(255,255,255,.013) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.013) 1px,transparent 1px);
+    background-size:36px 36px;
+    mask-image:radial-gradient(ellipse 80% 80% at center,black 40%,transparent 90%);}
+
+  /* ── right rail ── */
+  .rail{width:402px;flex-shrink:0;border-left:1px solid var(--line);
+    background:var(--bg1);display:flex;flex-direction:column;min-height:0;z-index:20;}
+  .rail-tabs{display:flex;border-bottom:1px solid var(--line);}
+  .rail-tab{flex:1;padding:11px;font-size:11px;text-transform:uppercase;
+    letter-spacing:.1em;color:var(--ink3);background:none;border:none;
+    border-bottom:2px solid transparent;transition:all .15s;}
+  .rail-tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+  .rail-body{flex:1;overflow-y:auto;padding:16px;}
+  .rail-body::-webkit-scrollbar{width:8px;}
+  .rail-body::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px;}
+
+  .empty{color:var(--ink3);font-size:13px;text-align:center;padding:50px 20px;line-height:1.7;}
+  .empty .big{font-size:30px;margin-bottom:12px;opacity:.5;}
+
+  .card{margin-bottom:16px;}
+  .card-h{font-size:10px;text-transform:uppercase;letter-spacing:.14em;
+    color:var(--ink3);margin-bottom:9px;display:flex;align-items:center;gap:7px;}
+  .card-h::after{content:'';flex:1;height:1px;background:var(--line);}
+
+  .svc-title{font-family:'Fraunces',serif;font-size:22px;font-weight:500;display:flex;
+    align-items:center;gap:10px;margin-bottom:4px;}
+  .state-chip{font-size:9.5px;padding:3px 8px;border-radius:20px;
+    font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.06em;}
+  .state-healthy{background:rgba(124,243,160,.14);color:var(--green);}
+  .state-degraded{background:rgba(255,180,84,.14);color:var(--amber);}
+  .state-critical{background:rgba(255,71,87,.16);color:var(--red);}
+
+  .metrics{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:4px;}
+  .metric{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:10px;}
+  .metric .v{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;color:var(--ink);}
+  .metric .l{font-size:9px;color:var(--ink3);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+  .metric.alert .v{color:var(--red);}
+
+  .dep-row{display:flex;align-items:center;justify-content:space-between;
+    padding:7px 9px;border-radius:7px;background:var(--bg2);margin-bottom:5px;
+    cursor:pointer;border:1px solid transparent;transition:all .12s;}
+  .dep-row:hover{border-color:var(--accent);}
+  .dep-row .n{font-size:12.5px;color:var(--ink);font-family:'JetBrains Mono',monospace;}
+  .dep-row .s{font-size:10px;color:var(--ink3);font-family:'JetBrains Mono',monospace;}
+  .dep-row .s.err{color:var(--red);}
+
+  .logline{font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:7px 9px;
+    border-left:2px solid var(--red);background:rgba(255,71,87,.05);
+    border-radius:0 6px 6px 0;margin-bottom:5px;color:var(--ink2);line-height:1.5;}
+  .logline .meta{color:var(--ink3);font-size:9px;}
+  .logline .code{color:var(--amber);}
+
+  .host-row{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:10.5px;
+    font-family:'JetBrains Mono',monospace;color:var(--ink2);}
+  .bar{flex:1;height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;}
+  .bar i{display:block;height:100%;border-radius:3px;background:var(--green);}
+  .bar i.hi{background:var(--amber);} .bar i.crit{background:var(--red);}
+
+  .inc-row{padding:9px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:var(--bg2);}
+  .inc-row .num{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);}
+  .inc-row .desc{font-size:11.5px;color:var(--ink2);margin-top:3px;line-height:1.4;}
+  .inc-row .notes{font-size:10px;color:var(--ink3);margin-top:4px;font-style:italic;}
+
+  /* SPL panel */
+  .spl-block{margin-bottom:12px;}
+  .spl-name{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--blue);
+    margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;}
+  .spl-copy{font-size:9px;color:var(--ink3);background:var(--bg2);border:1px solid var(--line);
+    border-radius:5px;padding:2px 7px;}
+  .spl-copy:hover{color:var(--ink);border-color:var(--accent);}
+  pre.spl{font-family:'JetBrains Mono',monospace;font-size:10px;line-height:1.55;
+    background:#0a0a0c;border:1px solid var(--line);border-radius:8px;padding:11px;
+    color:#c8d4cf;overflow-x:auto;white-space:pre-wrap;word-break:break-word;}
+  .spl .kw{color:var(--accent);} .spl .fn{color:var(--blue);} .spl .str{color:var(--green);}
+
+  /* tooltip */
+  #tip{position:fixed;pointer-events:none;z-index:100;background:rgba(20,20,26,.97);
+    border:1px solid var(--line2);border-radius:9px;padding:10px 12px;font-size:11px;
+    color:var(--ink);max-width:260px;opacity:0;transition:opacity .12s;
+    box-shadow:0 8px 30px rgba(0,0,0,.5);backdrop-filter:blur(8px);}
+  #tip.show{opacity:1;}
+  #tip .t-name{font-family:'JetBrains Mono',monospace;font-weight:600;margin-bottom:6px;
+    display:flex;align-items:center;gap:7px;}
+  #tip .t-row{display:flex;justify-content:space-between;gap:16px;color:var(--ink2);
+    font-size:10.5px;line-height:1.7;}
+  #tip .t-row b{color:var(--ink);font-family:'JetBrains Mono',monospace;font-weight:500;}
+  #tip .t-hint{margin-top:6px;font-size:9px;color:var(--ink3);}
+
+  /* legend + toast */
+  .legend{position:absolute;left:16px;bottom:16px;background:rgba(20,20,26,.8);
+    border:1px solid var(--line);border-radius:10px;padding:11px 13px;backdrop-filter:blur(8px);z-index:15;}
+  .legend .lh{font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink3);margin-bottom:8px;}
+  .legend .lr{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--ink2);margin-bottom:5px;}
+  .legend .ld{width:11px;height:11px;border-radius:50%;}
+
+  .toast{position:absolute;top:16px;left:50%;transform:translateX(-50%) translateY(-80px);
+    background:rgba(20,20,26,.96);border:1px solid var(--line2);border-radius:10px;
+    padding:11px 18px;font-size:12.5px;color:var(--ink);z-index:50;opacity:0;
+    transition:all .35s cubic-bezier(.2,.8,.2,1);box-shadow:0 10px 40px rgba(0,0,0,.5);
+    display:flex;align-items:center;gap:10px;max-width:520px;}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+  .toast .ic{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;}
+  .toast.ok .ic{background:var(--green);} .toast.warn .ic{background:var(--amber);}
+
+  .focus-banner{position:absolute;top:16px;right:418px;background:rgba(255,107,53,.12);
+    border:1px solid rgba(255,107,53,.4);border-radius:8px;padding:6px 12px;font-size:11px;
+    color:var(--accent);z-index:15;display:none;align-items:center;gap:9px;
+    font-family:'JetBrains Mono',monospace;}
+  .focus-banner.show{display:flex;}
+  .focus-banner button{background:none;border:none;color:var(--accent);font-size:14px;line-height:1;}
+
+  .count-stat{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--ink3);}
+  .count-stat b{color:var(--ink2);}
+
+  @media(max-width:900px){.rail{width:330px;}.focus-banner{right:346px;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="logo">H</div>
+      <div>
+        <h1>TITAN HELIX</h1>
+        <div class="sub">Live Operational Console</div>
+      </div>
+    </div>
+    <div class="controls">
+      <span id="sourcePill" class="pill"><span class="dot"></span><span id="sourceText">connecting…</span></span>
+      <span class="count-stat"><b id="nodeCount">0</b> services · <b id="edgeCount">0</b> deps</span>
+      <select id="windowSel" class="btn" title="Time window">
+        <option value="-15m@m">last 15 min</option>
+        <option value="-60m@m">last 60 min</option>
+        <option value="-4h@h">last 4 hrs</option>
+        <option value="-8d@d">last 8 days</option>
+      </select>
+      <button id="liveBtn" class="btn on" title="Toggle live polling">● Live</button>
+      <button id="refreshBtn" class="btn" title="Refresh now">↻</button>
+      <button id="injectBtn" class="btn primary">⚡ Inject checkout_collapse</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <div class="stage">
+      <div class="bg-grid"></div>
+      <svg id="graph"></svg>
+      <div class="legend">
+        <div class="lh">service health</div>
+        <div class="lr"><span class="ld" style="background:var(--green)"></span>healthy</div>
+        <div class="lr"><span class="ld" style="background:var(--amber)"></span>degraded &gt;3%</div>
+        <div class="lr"><span class="ld" style="background:var(--red)"></span>critical &gt;20%</div>
+        <div class="lh" style="margin-top:10px">interaction</div>
+        <div class="lr" style="font-size:10px;color:var(--ink3)">click node → drill down · drag to pin</div>
+      </div>
+      <div id="focusBanner" class="focus-banner">
+        <span id="focusText">focused</span>
+        <button id="clearFocus">×</button>
+      </div>
+      <div id="toast" class="toast"><span class="ic"></span><span id="toastText"></span></div>
+    </div>
+
+    <div class="rail">
+      <div class="rail-tabs">
+        <button class="rail-tab active" data-tab="inspector">Inspector</button>
+        <button class="rail-tab" data-tab="spl">SPL Provenance</button>
+      </div>
+      <div class="rail-body">
+        <div id="inspectorPane">
+          <div class="empty">
+            <div class="big">⊙</div>
+            Click any service node to explore its dependencies, latency,
+            recent errors, host resources, and the Splunk queries behind it.
+          </div>
+        </div>
+        <div id="splPane" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+// ════════════════════════════════════════════════════════════════════════════
+// TITAN HELIX live console — vanilla JS, custom force layout, no dependencies
+// ════════════════════════════════════════════════════════════════════════════
+const API = "";                       // same origin (served by backend)
+const SVGNS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById("graph");
+const tip = document.getElementById("tip");
+
+// ── physics constants (tuned for ~30 nodes) ──
+const REPULSION = 11000, SPRING = 0.018, REST = 95, GRAVITY = 0.016, DAMP = 0.85;
+
+// ── state ──
+let nodes = [], links = [], nodeById = {};
+let selectedId = null, hoverId = null, focusSet = null;
+let live = true, pollTimer = null, alpha = 1, simRunning = false;
+let W = 0, H = 0, splCatalog = {};
+
+const stateColor = {healthy:"var(--green)", degraded:"var(--amber)", critical:"var(--red)"};
+
+// ════════════════════════════════════════════════════════════════════════════
+// data
+// ════════════════════════════════════════════════════════════════════════════
+async function fetchGraph(){
+  const win = document.getElementById("windowSel").value;
+  try{
+    const r = await fetch(`${API}/api/graph?earliest=${encodeURIComponent(win)}`);
+    const d = await r.json();
+    setSource(d.source);
+    mergeGraph(d);
+  }catch(e){
+    setSource("down");
+  }
+}
+
+async function fetchSPLCatalog(){
+  try{ splCatalog = await (await fetch(`${API}/api/spl`)).json(); renderSPL(); }
+  catch(e){}
+}
+
+function setSource(src){
+  const pill = document.getElementById("sourcePill");
+  const txt = document.getElementById("sourceText");
+  pill.className = "pill " + (src==="splunk"?"splunk":src==="sample"?"sample":"");
+  txt.textContent = src==="splunk" ? "SPLUNK · live" :
+                    src==="sample" ? "SAMPLE data" :
+                    src==="down" ? "backend offline" : src;
+}
+
+// merge new graph data while preserving node positions (so layout doesn't jump)
+function mergeGraph(d){
+  const incoming = {}; (d.nodes||[]).forEach(n=>incoming[n.id]=n);
+  // update / add
+  (d.nodes||[]).forEach(n=>{
+    if(nodeById[n.id]){
+      const ex = nodeById[n.id];
+      const changed = ex.state !== n.state || ex.error_rate !== n.error_rate;
+      Object.assign(ex, {error_rate:n.error_rate, state:n.state,
+                          calls_total:n.calls_total, label:n.label});
+      if(changed) ex._flash = performance.now();
+    }else{
+      const n2 = {...n, x:W/2+(Math.random()-.5)*200, y:H/2+(Math.random()-.5)*200,
+                  vx:0, vy:0};
+      nodes.push(n2); nodeById[n.id]=n2;
+    }
+  });
+  // remove gone
+  for(let i=nodes.length-1;i>=0;i--){
+    if(!incoming[nodes[i].id]){ delete nodeById[nodes[i].id]; nodes.splice(i,1); }
+  }
+  links = (d.edges||[]).filter(e=>nodeById[e.source]&&nodeById[e.target]);
+  document.getElementById("nodeCount").textContent = nodes.length;
+  document.getElementById("edgeCount").textContent = links.length;
+  alpha = Math.max(alpha, .5);   // reheat
+  buildSVG();
+  if(selectedId && nodeById[selectedId]) applyFocus();
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SVG build
+// ════════════════════════════════════════════════════════════════════════════
+let defsAdded = false;
+function buildSVG(){
+  if(!defsAdded){
+    const defs = el("defs");
+    defs.innerHTML = `
+      <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+        markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="rgba(255,255,255,.25)"/></marker>
+      <marker id="arrow-hot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7"
+        markerHeight="7" orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="rgba(255,71,87,.7)"/></marker>
+      <radialGradient id="node-glow"><stop offset="0%" stop-color="#fff" stop-opacity=".25"/>
+        <stop offset="100%" stop-color="#fff" stop-opacity="0"/></radialGradient>`;
+    svg.appendChild(defs);
+    defsAdded = true;
+  }
+  // wipe layers
+  [...svg.querySelectorAll(".layer")].forEach(n=>n.remove());
+  const gEdges = el("g"); gEdges.classList.add("layer","edges");
+  const gNodes = el("g"); gNodes.classList.add("layer","nodes");
+  svg.appendChild(gEdges); svg.appendChild(gNodes);
+
+  links.forEach(e=>{
+    const p = el("path");
+    p.setAttribute("fill","none");
+    const hot = e.error_rate > 0.05;
+    p.setAttribute("stroke", hot ? "rgba(255,71,87,.45)" : "rgba(255,255,255,.13)");
+    p.setAttribute("stroke-width", Math.max(1, Math.min(4, Math.log(e.calls+1)/2)));
+    p.setAttribute("marker-end", hot ? "url(#arrow-hot)" : "url(#arrow)");
+    p.dataset.id = e.id;
+    p.style.transition = "stroke .5s, opacity .3s";
+    p.addEventListener("mouseenter", ev=>showEdgeTip(ev,e));
+    p.addEventListener("mousemove", moveTip);
+    p.addEventListener("mouseleave", hideTip);
+    e._el = p; gEdges.appendChild(p);
+  });
+
+  nodes.forEach(n=>{
+    const g = el("g"); g.dataset.id = n.id; g.style.cursor="pointer";
+    const r = nodeRadius(n);
+    const glow = el("circle"); glow.setAttribute("r", r+10);
+    glow.setAttribute("fill","url(#node-glow)"); glow.classList.add("glow");
+    const ring = el("circle"); ring.setAttribute("r", r+5);
+    ring.setAttribute("fill","none"); ring.setAttribute("stroke",stateColor[n.state]);
+    ring.setAttribute("stroke-width","1.5"); ring.setAttribute("opacity","0");
+    ring.classList.add("ring"); ring.style.transition="opacity .2s";
+    const c = el("circle"); c.setAttribute("r", r);
+    c.setAttribute("fill", "var(--bg2)");
+    c.setAttribute("stroke", stateColor[n.state]);
+    c.setAttribute("stroke-width","2.5"); c.classList.add("core");
+    c.style.transition="stroke .6s";
+    const dot = el("circle"); dot.setAttribute("r", Math.max(3,r*.3));
+    dot.setAttribute("fill", stateColor[n.state]); dot.classList.add("inner");
+    dot.style.transition="fill .6s";
+    const label = el("text"); label.setAttribute("text-anchor","middle");
+    label.setAttribute("dy", r+15); label.setAttribute("fill","var(--ink2)");
+    label.setAttribute("font-size","11"); label.setAttribute("font-family","'JetBrains Mono',monospace");
+    label.textContent = n.label; label.classList.add("lbl");
+    label.style.pointerEvents="none";
+    g.append(glow,ring,c,dot,label);
+    g.addEventListener("mouseenter", ev=>{hoverId=n.id; showNodeTip(ev,n); hoverHighlight(n,true);});
+    g.addEventListener("mousemove", moveTip);
+    g.addEventListener("mouseleave", ()=>{hoverId=null; hideTip(); hoverHighlight(n,false);});
+    g.addEventListener("click", ev=>{ev.stopPropagation(); selectNode(n);});
+    g.addEventListener("mousedown", ev=>startDrag(ev,n));
+    n._el = g; n._core=c; n._dot=dot; n._ring=ring;
+    gNodes.appendChild(g);
+  });
+}
+
+function nodeRadius(n){ return 11 + Math.min(13, Math.sqrt((n.calls_total||1000)/600)); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// force simulation
+// ════════════════════════════════════════════════════════════════════════════
+function tick(){
+  if(alpha > 0.005){
+    const cx=W/2, cy=H/2;
+    for(const n of nodes){ n.fx=0; n.fy=0; }
+    for(let i=0;i<nodes.length;i++){
+      for(let j=i+1;j<nodes.length;j++){
+        const a=nodes[i], b=nodes[j];
+        let dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy+.01, d=Math.sqrt(d2);
+        const f=REPULSION/d2; const ux=dx/d, uy=dy/d;
+        a.fx+=ux*f; a.fy+=uy*f; b.fx-=ux*f; b.fy-=uy*f;
+      }
+    }
+    for(const e of links){
+      const a=nodeById[e.source], b=nodeById[e.target];
+      let dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)+.01;
+      const f=SPRING*(d-REST); const ux=dx/d, uy=dy/d;
+      a.fx+=ux*f; a.fy+=uy*f; b.fx-=ux*f; b.fy-=uy*f;
+    }
+    for(const n of nodes){
+      n.fx += (cx-n.x)*GRAVITY; n.fy += (cy-n.y)*GRAVITY;
+      if(n.pinned) continue;
+      n.vx=(n.vx+n.fx)*DAMP; n.vy=(n.vy+n.fy)*DAMP;
+      n.vx=Math.max(-30,Math.min(30,n.vx)); n.vy=Math.max(-30,Math.min(30,n.vy));
+      n.x+=n.vx; n.y+=n.vy;
+      n.x=Math.max(40,Math.min(W-40,n.x)); n.y=Math.max(40,Math.min(H-50,n.y));
+    }
+    alpha *= 0.96;
+  }
+  draw();
+  requestAnimationFrame(tick);
+}
+
+function draw(){
+  const now = performance.now();
+  for(const e of links){
+    if(!e._el) continue;
+    const a=nodeById[e.source], b=nodeById[e.target];
+    if(!a||!b) continue;
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2;
+    const dx=b.x-a.x, dy=b.y-a.y;
+    const cx2=mx-dy*0.12, cy2=my+dx*0.12;   // slight curve
+    e._el.setAttribute("d", `M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q${cx2.toFixed(1)} ${cy2.toFixed(1)} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`);
+  }
+  for(const n of nodes){
+    if(!n._el) continue;
+    n._el.setAttribute("transform", `translate(${n.x.toFixed(1)},${n.y.toFixed(1)})`);
+    // live color sync
+    const col = stateColor[n.state];
+    n._core.setAttribute("stroke", col); n._dot.setAttribute("fill", col);
+    n._ring.setAttribute("stroke", col);
+    // flash on change
+    if(n._flash){
+      const dt = now - n._flash;
+      if(dt < 900){ const k = 1 - dt/900; n._el.querySelector(".glow").setAttribute("opacity", .25 + k); }
+      else n._flash = 0;
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// interactions: hover, select, focus, drag
+// ════════════════════════════════════════════════════════════════════════════
+function neighbors(id){
+  const s = new Set([id]);
+  links.forEach(e=>{ if(e.source===id) s.add(e.target); if(e.target===id) s.add(e.source); });
+  return s;
+}
+
+function hoverHighlight(n, on){
+  if(selectedId) return;   // selection takes precedence
+  if(on){
+    const nb = neighbors(n.id);
+    nodes.forEach(m=> m._el.style.opacity = nb.has(m.id)?1:0.22);
+    links.forEach(e=> e._el.style.opacity = (e.source===n.id||e.target===n.id)?1:0.08);
+    n._ring.setAttribute("opacity","0.8");
+  }else{
+    nodes.forEach(m=> m._el.style.opacity = 1);
+    links.forEach(e=> e._el.style.opacity = 1);
+    n._ring.setAttribute("opacity","0");
+  }
+}
+
+async function selectNode(n){
+  selectedId = n.id;
+  nodes.forEach(m=> m._ring.setAttribute("opacity", m.id===n.id?"1":"0"));
+  applyFocus();
+  showFocusBanner(n.label);
+  switchTab("inspector");
+  await loadServiceDetail(n.label);
+}
+
+function applyFocus(){
+  if(!selectedId){ clearFocusVisual(); return; }
+  focusSet = neighbors(selectedId);
+  nodes.forEach(m=> m._el.style.opacity = focusSet.has(m.id)?1:0.18);
+  links.forEach(e=> e._el.style.opacity =
+    (e.source===selectedId||e.target===selectedId)?1:0.06);
+}
+function clearFocusVisual(){
+  nodes.forEach(m=>{ m._el.style.opacity=1; m._ring.setAttribute("opacity","0"); });
+  links.forEach(e=> e._el.style.opacity=1);
+}
+function clearSelection(){
+  selectedId=null; focusSet=null; clearFocusVisual();
+  document.getElementById("focusBanner").classList.remove("show");
+}
+
+function showFocusBanner(label){
+  document.getElementById("focusText").textContent = "focused: "+label;
+  document.getElementById("focusBanner").classList.add("show");
+}
+
+svg.addEventListener("click", ()=>{ clearSelection(); renderInspectorEmpty(); });
+
+// drag
+let dragNode=null, dragMoved=false;
+function startDrag(ev,n){
+  dragNode=n; dragMoved=false; n.pinned=true;
+  svg.classList.add("dragging");
+  ev.stopPropagation();
+}
+window.addEventListener("mousemove", ev=>{
+  if(!dragNode) return;
+  const pt = svgPoint(ev); dragNode.x=pt.x; dragNode.y=pt.y;
+  dragNode.vx=0; dragNode.vy=0; alpha=Math.max(alpha,.3); dragMoved=true;
+});
+window.addEventListener("mouseup", ()=>{
+  if(dragNode){ svg.classList.remove("dragging"); dragNode=null; }
+});
+
+function svgPoint(ev){
+  const r = svg.getBoundingClientRect();
+  return {x: ev.clientX-r.left, y: ev.clientY-r.top};
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// tooltips
+// ════════════════════════════════════════════════════════════════════════════
+function showNodeTip(ev,n){
+  const inDeg = links.filter(e=>e.target===n.id).length;
+  const outDeg = links.filter(e=>e.source===n.id).length;
+  tip.innerHTML = `
+    <div class="t-name"><span style="width:8px;height:8px;border-radius:50%;background:${stateColor[n.state]}"></span>${n.label}</div>
+    <div class="t-row"><span>state</span><b style="color:${stateColor[n.state]}">${n.state}</b></div>
+    <div class="t-row"><span>error rate</span><b>${(n.error_rate*100).toFixed(2)}%</b></div>
+    <div class="t-row"><span>log volume</span><b>${fmt(n.calls_total)}</b></div>
+    <div class="t-row"><span>dependencies</span><b>${inDeg} in · ${outDeg} out</b></div>
+    <div class="t-hint">click to drill down →</div>`;
+  moveTip(ev); tip.classList.add("show");
+}
+function showEdgeTip(ev,e){
+  const s=e.source.replace("svc:",""), t=e.target.replace("svc:","");
+  tip.innerHTML = `
+    <div class="t-name">${s} → ${t}</div>
+    <div class="t-row"><span>calls</span><b>${fmt(e.calls)}</b></div>
+    <div class="t-row"><span>avg latency</span><b>${e.avg_ms} ms</b></div>
+    <div class="t-row"><span>error rate</span><b style="color:${e.error_rate>0.05?'var(--red)':'var(--ink)'}">${(e.error_rate*100).toFixed(2)}%</b></div>
+    <div class="t-row"><span>confidence</span><b>${(e.confidence*100).toFixed(0)}%</b></div>
+    <div class="t-hint">inferred from trace spans · L1 observed</div>`;
+  moveTip(ev); tip.classList.add("show");
+}
+function moveTip(ev){
+  let x=ev.clientX+16, y=ev.clientY+16;
+  if(x+270 > window.innerWidth) x = ev.clientX-270;
+  if(y+160 > window.innerHeight) y = ev.clientY-160;
+  tip.style.left=x+"px"; tip.style.top=y+"px";
+}
+function hideTip(){ tip.classList.remove("show"); }
+
+// ════════════════════════════════════════════════════════════════════════════
+// inspector (drill-down)
+// ════════════════════════════════════════════════════════════════════════════
+async function loadServiceDetail(name){
+  const pane = document.getElementById("inspectorPane");
+  pane.innerHTML = `<div class="empty"><div class="big">◌</div>loading ${name}…</div>`;
+  try{
+    const d = await (await fetch(`${API}/api/service/${encodeURIComponent(name)}`)).json();
+    renderInspector(d);
+    renderSPL(d.spl);   // update SPL panel with this service's queries
+  }catch(e){
+    pane.innerHTML = `<div class="empty">Couldn't load ${name}.<br>Is the backend reachable?</div>`;
+  }
+}
+
+function renderInspector(d){
+  const node = nodeById["svc:"+d.service] || {};
+  const st = node.state || "healthy";
+  const L = d.latency || {};
+  const errRate = (L.error_rate!=null?L.error_rate:node.error_rate||0);
+  const h = [];
+  h.push(`<div class="svc-title">${d.service}
+    <span class="state-chip state-${st}">${st}</span></div>`);
+  if(d.source==="sample") h.push(`<div style="font-size:10px;color:var(--amber);margin-bottom:10px">⚠ sample data (Splunk returned nothing for this window)</div>`);
+
+  // metrics
+  h.push(`<div class="card"><div class="metrics">
+    <div class="metric ${errRate>0.2?'alert':''}"><div class="v">${(errRate*100).toFixed(1)}%</div><div class="l">error rate</div></div>
+    <div class="metric"><div class="v">${Math.round(L.p99||0)}</div><div class="l">p99 ms</div></div>
+    <div class="metric"><div class="v">${fmt(L.calls||0)}</div><div class="l">calls</div></div>
+  </div>
+  <div class="metrics" style="margin-top:8px">
+    <div class="metric"><div class="v">${Math.round(L.p50||0)}</div><div class="l">p50 ms</div></div>
+    <div class="metric"><div class="v">${Math.round(L.p95||0)}</div><div class="l">p95 ms</div></div>
+    <div class="metric"><div class="v">${Math.round(L.avg_ms||0)}</div><div class="l">avg ms</div></div>
+  </div></div>`);
+
+  // upstream
+  if(d.upstream && d.upstream.length){
+    h.push(`<div class="card"><div class="card-h">⬆ called by (upstream)</div>`);
+    d.upstream.forEach(u=> h.push(depRow(u.service, `${fmt(u.calls)} calls · ${Math.round(u.avg_ms)}ms`)));
+    h.push(`</div>`);
+  }
+  // downstream
+  if(d.downstream && d.downstream.length){
+    h.push(`<div class="card"><div class="card-h">⬇ depends on (downstream)</div>`);
+    d.downstream.forEach(dn=>{
+      const er = parseFloat(dn.error_rate||0);
+      h.push(depRow(dn.service, `${fmt(dn.calls)} calls · ${(er*100).toFixed(1)}% err`, er>0.05));
+    });
+    h.push(`</div>`);
+  }
+  // recent errors
+  if(d.errors && d.errors.length){
+    h.push(`<div class="card"><div class="card-h">recent errors</div>`);
+    d.errors.slice(0,6).forEach(e=>{
+      h.push(`<div class="logline">${esc(e.message||"")}
+        <div class="meta">${e.http_status?`<span class="code">HTTP ${e.http_status}</span> · `:''}trace ${(e.trace_id||'').slice(0,12)}</div></div>`);
+    });
+    h.push(`</div>`);
+  }
+  // hosts
+  if(d.hosts && d.hosts.length){
+    h.push(`<div class="card"><div class="card-h">host resources (cpu)</div>`);
+    d.hosts.slice(0,6).forEach(ho=>{
+      const cpu=parseFloat(ho.avg_cpu||0), cls=cpu>85?'crit':cpu>65?'hi':'';
+      h.push(`<div class="host-row"><span style="flex:0 0 130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ho.host}</span>
+        <div class="bar"><i class="${cls}" style="width:${Math.min(100,cpu)}%"></i></div>
+        <span style="flex:0 0 38px;text-align:right">${cpu.toFixed(0)}%</span></div>`);
+    });
+    h.push(`</div>`);
+  }
+  // incidents
+  if(d.incidents && d.incidents.length){
+    h.push(`<div class="card"><div class="card-h">related incidents</div>`);
+    d.incidents.slice(0,4).forEach(i=>{
+      h.push(`<div class="inc-row"><span class="num">${i.number||''}</span>
+        <span style="float:right;font-size:10px;color:var(--ink3)">${i.state||''}</span>
+        <div class="desc">${esc(i.short_description||'')}</div>
+        ${i.close_notes?`<div class="notes">↳ ${esc(i.close_notes)}</div>`:''}</div>`);
+    });
+    h.push(`</div>`);
+  }
+  document.getElementById("inspectorPane").innerHTML = h.join("");
+  // wire dep navigation
+  document.querySelectorAll("#inspectorPane .dep-row").forEach(row=>{
+    row.addEventListener("click", ()=>{
+      const target = nodeById["svc:"+row.dataset.svc];
+      if(target) selectNode(target);
+    });
+  });
+}
+
+function depRow(svc, sub, err){
+  return `<div class="dep-row" data-svc="${svc}">
+    <span class="n">${svc}</span><span class="s ${err?'err':''}">${sub}</span></div>`;
+}
+function renderInspectorEmpty(){
+  document.getElementById("inspectorPane").innerHTML =
+    `<div class="empty"><div class="big">⊙</div>Click any service node to explore its
+     dependencies, latency, recent errors, host resources, and the Splunk queries behind it.</div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SPL provenance panel
+// ════════════════════════════════════════════════════════════════════════════
+function renderSPL(serviceSpl){
+  const pane = document.getElementById("splPane");
+  const blocks = [];
+  if(serviceSpl){
+    blocks.push(splBlock("service latency", serviceSpl.latency));
+    blocks.push(splBlock("upstream callers", serviceSpl.upstream));
+    blocks.push(splBlock("downstream deps", serviceSpl.downstream));
+    blocks.push(splBlock("recent errors", serviceSpl.errors));
+    blocks.push(splBlock("host cpu", serviceSpl.hosts));
+  }
+  blocks.push(splBlock("dependency graph", splCatalog.graph_dependencies));
+  blocks.push(splBlock("service health", splCatalog.service_health));
+  blocks.push(splBlock("error timeline", splCatalog.error_timeline));
+  pane.innerHTML = blocks.filter(Boolean).join("");
+  pane.querySelectorAll(".spl-copy").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      navigator.clipboard.writeText(b.dataset.q).then(()=>{
+        b.textContent="copied"; setTimeout(()=>b.textContent="copy",1200);
+      });
+    });
+  });
+}
+function splBlock(name, q){
+  if(!q) return "";
+  return `<div class="spl-block">
+    <div class="spl-name">${name}<button class="spl-copy" data-q="${esc(q)}">copy</button></div>
+    <pre class="spl">${hlSPL(q)}</pre></div>`;
+}
+function hlSPL(q){
+  return esc(q)
+    .replace(/\b(index|sourcetype|stats|eval|where|sort|table|rename|head|timechart|by|as|count|sum|avg|perc\d+|span|limit)\b/g,'<span class="kw">$1</span>')
+    .replace(/(&quot;[^&]*?&quot;)/g,'<span class="str">$1</span>');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// inject cascade
+// ════════════════════════════════════════════════════════════════════════════
+async function injectCascade(){
+  const btn = document.getElementById("injectBtn");
+  btn.disabled = true; btn.textContent = "⚡ injecting…";
+  try{
+    const r = await fetch(`${API}/api/simulate`, {method:"POST"});
+    const d = await r.json();
+    if(d.status==="started"){
+      toast(`Cascade injecting (${d.duration_s}s @ ${d.speed}×) — watch the graph turn red`, "ok");
+      if(!live) toggleLive();        // ensure live so they see it
+    }else if(d.status==="already_running"){
+      toast("A simulation is already running.", "warn");
+    }else if(d.status==="unavailable"){
+      toast("Live injection needs HELIX_HEC_TOKEN in the backend env — running projected mode instead.", "warn");
+      projectedCascade();
+    }else{
+      toast(d.reason||"Could not start injection — projected mode.", "warn");
+      projectedCascade();
+    }
+  }catch(e){
+    toast("Backend unreachable — running projected cascade.", "warn");
+    projectedCascade();
+  }
+  setTimeout(()=>{ btn.disabled=false; btn.textContent="⚡ Inject checkout_collapse"; }, 4000);
+}
+
+// client-side projection: BFS-propagate failure over the REAL topology
+function projectedCascade(){
+  const origin = nodeById["svc:feature-store-db"] ||
+                 nodes.find(n=>n.label.includes("feature-store")) || nodes[0];
+  if(!origin) return;
+  // build reverse adjacency (who calls whom)
+  const rev={}; links.forEach(e=>{ (rev[e.target]=rev[e.target]||[]).push(e.source); });
+  let layer=[origin.id], seen=new Set([origin.id]), delay=0;
+  const hit = id=>{ const n=nodeById[id]; if(n){ n.state="critical"; n.error_rate=Math.max(n.error_rate,.35); n._flash=performance.now(); } };
+  while(layer.length){
+    const cur=layer; layer=[];
+    setTimeout(()=>cur.forEach(hit), delay);
+    cur.forEach(id=>(rev[id]||[]).forEach(p=>{ if(!seen.has(p)){seen.add(p); layer.push(p);} }));
+    delay += 900;
+  }
+  toast("Projected blast-radius propagation over live topology (no data written).", "warn");
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ui plumbing
+// ════════════════════════════════════════════════════════════════════════════
+function toggleLive(){
+  live=!live;
+  const b=document.getElementById("liveBtn");
+  b.classList.toggle("on",live); b.textContent = live?"● Live":"❚❚ Paused";
+  if(live) startPolling(); else stopPolling();
+}
+function startPolling(){ stopPolling(); pollTimer=setInterval(fetchGraph, 4000); }
+function stopPolling(){ if(pollTimer) clearInterval(pollTimer); pollTimer=null; }
+
+function switchTab(name){
+  document.querySelectorAll(".rail-tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===name));
+  document.getElementById("inspectorPane").style.display = name==="inspector"?"":"none";
+  document.getElementById("splPane").style.display = name==="spl"?"":"none";
+}
+
+let toastTimer=null;
+function toast(msg, kind){
+  const t=document.getElementById("toast");
+  document.getElementById("toastText").textContent=msg;
+  t.className="toast show "+(kind||"");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"), 5200);
+}
+
+// helpers
+function el(tag){ return document.createElementNS(SVGNS, tag); }
+function fmt(n){ n=+n||0; return n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"k":""+n; }
+function esc(s){ return (s==null?"":""+s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function resize(){
+  const r = svg.getBoundingClientRect(); W=r.width; H=r.height;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+}
+
+// ── wire events ──
+document.getElementById("liveBtn").addEventListener("click", toggleLive);
+document.getElementById("refreshBtn").addEventListener("click", fetchGraph);
+document.getElementById("injectBtn").addEventListener("click", injectCascade);
+document.getElementById("windowSel").addEventListener("change", fetchGraph);
+document.getElementById("clearFocus").addEventListener("click", ()=>{clearSelection();renderInspectorEmpty();});
+document.querySelectorAll(".rail-tab").forEach(t=>t.addEventListener("click",()=>switchTab(t.dataset.tab)));
+window.addEventListener("resize", resize);
+
+// ── boot ──
+resize();
+fetchSPLCatalog();
+fetchGraph().then(()=>{ alpha=1; });
+startPolling();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
