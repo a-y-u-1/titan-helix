@@ -372,6 +372,46 @@ def simulate_status():
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# AI investigation — runs the agent mesh over live Splunk
+# ════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/investigate/{name}")
+def investigate(name: str, earliest: str = "-15m@m"):
+    """Run the multi-agent reasoning chain on a service. Uses a real LLM if
+    HELIX_LLM_API_KEY is set, otherwise deterministic reasoning from the data."""
+    if not SAFE_NAME.match(name):
+        return JSONResponse({"error": "invalid service name"}, status_code=400)
+
+    if str(PROJECT_ROOT) not in sys.path:
+        sys.path.insert(0, str(PROJECT_ROOT))
+    try:
+        from agents import AgentMesh, HECWriter, LLM
+    except Exception as e:
+        return JSONResponse({"error": f"agent module unavailable: {e}"},
+                            status_code=500)
+
+    hec = HECWriter(os.environ.get("HELIX_HEC_URL"),
+                    os.environ.get("HELIX_HEC_TOKEN"))
+    key = os.environ.get("HELIX_LLM_API_KEY")
+    provider = os.environ.get("HELIX_LLM_PROVIDER", "anthropic")
+    model = os.environ.get("HELIX_LLM_MODEL",
+                           "claude-opus-4-7" if provider == "anthropic" else "gpt-4o")
+    llm = LLM(provider, key, model) if key else None
+
+    # the backend's SplunkClient already exposes .search() — feed it to the mesh
+    mesh = AgentMesh(splunk, hec, name, llm=llm, earliest=earliest)
+    try:
+        opinions = mesh.run()
+    except Exception as e:
+        log.warning("investigation failed: %s", e)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    return {"service": name, "ts": time.time(),
+            "reasoning_mode": (f"llm:{provider}/{model}" if llm else "deterministic"),
+            "opinions": opinions}
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # Sample fallbacks
 # ════════════════════════════════════════════════════════════════════════════
 
