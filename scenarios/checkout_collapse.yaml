@@ -1,0 +1,201 @@
+# ════════════════════════════════════════════════════════════════════════════
+# scenarios/checkout_collapse.yaml
+# A six-phase cascading failure: feature-store DB I/O pressure cascades through
+# fraud-scoring → checkout-api → POS plane in ap-south-1.
+#
+# Loaded by helix_synth.scenarios.checkout_collapse.CheckoutCollapseScenario.
+# The orchestrator walks phases in `at` order and applies modifiers per tick.
+# ════════════════════════════════════════════════════════════════════════════
+
+name: checkout_collapse
+title: "Checkout Collapse — fraud feature-store cascade"
+description: >
+  Feature-store DB hits I/O saturation. Fraud-scoring calls time out, cascading
+  to checkout-api 5xx, then to POS terminals in ap-south-1 region.
+  Recovery starts at T+12min when an upstream remediation drops feature-store
+  CPU pressure.
+duration_seconds: 900       # 15-minute scenario
+
+# When the scenario emits a "scenario started" audit record
+audit:
+  index: helix_audit
+  sourcetype: helix:scenario:event
+
+phases:
+
+  # ─── PHASE 0 · Baseline (T+0..120s) ──────────────────────────────────────
+  - at: 0
+    name: baseline
+    description: "Normal operating state. Nothing injected."
+    duration: 120
+    affects: []
+
+  # ─── PHASE 1 · DB I/O pressure (T+120..240s) ─────────────────────────────
+  - at: 120
+    name: feature_store_db_io_pressure
+    description: "Hidden DB I/O pressure begins. No visible application errors yet."
+    duration: 120
+    affects:
+      - target:    { kind: service, name: feature-store-db }
+        modifiers:
+          cpu_boost:     25       # CPU rises 25pp above baseline
+          io_wait_boost: 40       # IO wait climbs to 40%
+          ramp_seconds:  60       # ramp in over 60s, not a step function
+      # Subtle log signal — only operators looking carefully would notice
+      - target: { kind: log, service: feature-store }
+        inject:
+          - level:        WARN
+            template:     "feature lookup p99 {latency_ms}ms exceeds SLO 80ms"
+            fields:
+              latency_ms: { random_between: [120, 280] }
+            rate_per_min: 40
+
+  # ─── PHASE 2 · Fraud-scoring timeouts (T+240..360s) ──────────────────────
+  - at: 240
+    name: fraud_scoring_timeouts
+    description: "Fraud-scoring feature lookups time out. Circuit breaker engages."
+    duration: 120
+    affects:
+      - target:    { kind: service, name: fraud-scoring }
+        modifiers:
+          error_rate:      0.18
+          latency_p99_ms:  1400
+      - target: { kind: log, service: fraud-scoring }
+        inject:
+          - level:    ERROR
+            template: "feature store call timeout after {timeout_ms}ms — fallback to heuristic"
+            fields:
+              timeout_ms: { random_between: [1500, 2200] }
+              downstream: feature-store
+              trace_id:   { generated: hex16 }
+            rate_per_min: 90
+          - level:    WARN
+            template: "circuit-breaker OPEN for feature-store; serving heuristic scores"
+            rate_per_min: 10
+
+  # ─── PHASE 3 · Checkout 5xx + ServiceNow incident (T+360..480s) ──────────
+  - at: 360
+    name: checkout_partial_outage
+    description: "Checkout-api error rate climbs to 31%. Auto-ticket fires."
+    duration: 120
+    affects:
+      - target:    { kind: service, name: checkout-api }
+        modifiers:
+          error_rate:           0.31
+          latency_p99_ms:       1820
+          request_rate_mult:    0.7    # users abandon
+      - target: { kind: log, service: checkout-api }
+        inject:
+          - level:    ERROR
+            template: "downstream fraud-scoring timeout after {ms}ms; returning 503"
+            fields:
+              ms:         { random_between: [1500, 2000] }
+              downstream: fraud-scoring
+              trace_id:   { generated: hex16 }
+              span_id:    { generated: hex12 }
+              http_status: 503
+              deployment: "checkout-api@v2.41.3"
+            rate_per_min: 180
+      - target: { kind: incident }
+        create:
+          number_prefix:    INC
+          short_description: "Elevated checkout API errors in us-east-2"
+          category:          Application
+          subcategory:       Availability
+          priority:          "2"
+          severity:          "2"
+          state:             New
+          assignment_group:  "Payments-SRE"
+          cmdb_ci:           "checkout-api"
+          u_source:          "helix-prediction-agent"
+          u_confidence:      0.82
+      - target: { kind: business_kpi }
+        metric:   checkout_completion_rate
+        modify:   { absolute: 0.687, baseline: 0.972 }
+        region:   us-east-2
+
+  # ─── PHASE 4 · POS impact (T+480..720s) ──────────────────────────────────
+  - at: 480
+    name: pos_terminal_failures
+    description: "POS terminals in ap-south-1 lose connection to checkout."
+    duration: 240
+    affects:
+      - target: { kind: pos, region: ap-south-1 }
+        modifiers:
+          offline_pct: 0.22
+      - target: { kind: log, service: pos-gateway }
+        inject:
+          - level: ERROR
+            template: "upstream checkout-api 503 — buffering transactions to local store"
+            fields:
+              host:       "{pos_hostname}"
+              region:     ap-south-1
+              tx_buffered: { random_between: [1, 22] }
+            rate_per_min: 220
+      - target: { kind: business_kpi }
+        metric:   pos_transactions_per_min
+        modify:   { mult: 0.55, baseline: 14200 }
+        region:   ap-south-1
+
+  # ─── PHASE 5 · Recovery (T+720..900s) ────────────────────────────────────
+  - at: 720
+    name: recovery
+    description: "Remediation lands. feature-store-db CPU drops, errors recede."
+    duration: 180
+    affects:
+      - target: { kind: service, name: feature-store-db }
+        modifiers:
+          cpu_boost:     0
+          io_wait_boost: 0
+          ramp_seconds:  120
+      - target: { kind: service, name: fraud-scoring }
+        modifiers:
+          error_rate:     0.01
+          latency_p99_ms: 280
+          ramp_seconds:   90
+      - target: { kind: service, name: checkout-api }
+        modifiers:
+          error_rate:     0.005
+          latency_p99_ms: 220
+          ramp_seconds:   90
+      - target: { kind: pos, region: ap-south-1 }
+        modifiers:
+          offline_pct: 0.0
+          ramp_seconds: 60
+      - target: { kind: deploy }
+        create:
+          service:    feature-store-db
+          version:    "v3.12.0-hotfix1"
+          previous:   "v3.12.0"
+          rollout:    rolling
+          actor:      "helix-remediation-agent"
+          pipeline:   "feature-store-db-prod"
+          change_id:  CHG0098234
+      - target: { kind: incident }
+        update:
+          number_match:  "*"
+          short_description_contains: "checkout API"
+          set:
+            state:             Resolved
+            close_code:        "Solved (Permanently)"
+            close_notes:       "Feature-store-db rollout to v3.12.0-hotfix1 restored I/O headroom."
+            u_resolved_by:     "helix-remediation-agent"
+
+# ─── Detection criteria — what the agents should figure out ─────────────────
+# The orchestrator does NOT show this to agents. It's the answer key, scored
+# at scenario end:
+#   - Did Observer flag feature-store-db by T+180s?
+#   - Did Correlation identify the lead-lag (DB → fraud-scoring → checkout)?
+#   - Did Prediction forecast POS impact before T+480s (when it actually hit)?
+#   - Did Remediation propose the same action that actually resolved it?
+ground_truth:
+  origin_service: feature-store-db
+  origin_signal:  cpu_io_saturation
+  causal_chain:
+    - feature-store-db
+    - feature-store
+    - fraud-scoring
+    - checkout-api
+    - pos-gateway
+  effective_remediation: feature_store_db_restart_or_capacity_increase
+  expected_detection_latency_sec: 90

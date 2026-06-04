@@ -1,0 +1,9 @@
+# Ignore virtual environment files
+.venv/
+# Ignore compiled Python files
+*.pyc
+__pycache__
+backend/__pycache__
+/data/*.jsonl
+*.jsonl
+
