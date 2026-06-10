@@ -10,7 +10,7 @@
 
 **An autonomous reasoning mesh that sits on your Splunk data and explains failures while they unfold.**
 
-[ live demo ](https://your-username.github.io/your-repo/) · [ architecture ](docs/architecture.svg) · [ run it ](#run-it)
+**[Live demo](https://a-y-u-1.github.io/titan-helix)** · [Architecture](docs/architecture.svg) · [Run it](#run-it)
 
 ＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿
 
@@ -46,7 +46,7 @@ reasoning layer above it does not change a line.
 
 ## Watch it
 
-→ **https://your-username.github.io/your-repo/** — opens in a browser, plays on its own, installs nothing.
+→ **https://a-y-u-1.github.io/titan-helix** — opens in a browser, plays on its own, installs nothing.
 
 It runs the `checkout_collapse` incident end to end in about forty seconds:
 
@@ -105,7 +105,7 @@ client.
 ## Run it
 
 ```
-git clone <your-repo-url> titan-helix
+git clone https://github.com/a-y-u-1/titan-helix
 cd titan-helix
 ./setup.sh
 ```
@@ -139,17 +139,18 @@ export HELIX_LLM_MODEL=claude-sonnet-4-6
 
 ## The public demo, on GitHub Pages
 
-`demo.html` is fully self-contained, so it hosts as a static site — a public link a judge can open
-cold, nothing to install. Pages is free on public repositories.
+The repo ships a neon landing page (`index.html`) and a self-contained scripted demo (`demo.html`),
+both static — so the whole thing hosts on GitHub Pages, a public link a judge opens cold with nothing
+to install. Pages is free on public repositories.
 
-```
-cp demo.html index.html          # cleanest root URL
-git add index.html && git commit -m "pages: scripted demo at root" && git push
-```
+**Settings → Pages → Deploy from a branch → `main` / root → Save.** A minute later it's live at
+**`https://a-y-u-1.github.io/titan-helix`** — the landing page, with a *Launch the live demo* button
+that opens `demo.html`. (No `index.html` at the root makes Pages render this README instead, which is
+why the landing page matters.)
 
-Then **Settings → Pages → Deploy from a branch → main / root**. A minute later it's live at
-`https://your-username.github.io/your-repo/`. Only the scripted demo runs there — the live console and
-`/stage` need the local backend from `./setup.sh`.
+Add your screenshots to `assets/screens/01.png … 06.png` to fill the carousel — see
+`assets/screens/README.md` for the shot list. Only the scripted demo runs on Pages; the live console
+and `/stage` need the local backend from `./setup.sh`.
 
 ## Built on
 
@@ -162,6 +163,7 @@ hand. An animated SVG for the architecture. Bash for setup that survives a reboo
 
 ```
 titan-helix/
+  index.html                    neon landing page (GitHub Pages root)
   setup.sh  preflight.sh        one-command bring-up · pre-demo go/no-go
   agents.py                     the six-agent reasoning mesh
   synth_generator.py            live telemetry, driven by the scenario
@@ -170,6 +172,7 @@ titan-helix/
   console.html  demo.html  stage.html    live · scripted · presenter shell
   backend/                      FastAPI — graph, drill-down, /api/investigate, MCP-shaped Splunk access
   scenarios/checkout_collapse.yaml        the cascade, with its hidden root cause
+  assets/screens/               your landing-page screenshots (01–06)
   docs/                         architecture.svg (animated) · ARCHITECTURE.md (full design)
   README.md  LICENSE  MANIFEST.md  PREFLIGHT.md
 ```

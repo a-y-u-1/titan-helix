@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TITAN HELIX — autonomous AI operational intelligence mesh</title>
+<meta name="description" content="A reasoning mesh that sits on your Splunk data and explains failures while they unfold.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0E17; --ink2:#0E1322; --line:#1E2740;
+    --orange:#FF6B35; --orange-2:#FB923C; --ember:#FF4D00;
+    --cyan:#22D3EE; --white:#FFFFFF; --cream:#FFF7F0;
+    --muted-d:#8A97AE; --muted-l:#7A6A60;
+    --glowO:0 0 28px rgba(255,107,53,.55); --glowC:0 0 24px rgba(34,211,238,.5);
+    --maxw:1240px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--white);font-family:Inter,system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased;overflow-x:hidden;line-height:1.5}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  .mono{font-family:'JetBrains Mono',monospace}
+  .display{font-family:Sora,sans-serif}
+
+  /* ── nav ── */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+      background:rgba(10,14,23,.72);border-bottom:1px solid var(--line)}
+  .nav-in{max-width:var(--maxw);margin:0 auto;padding:16px 28px;display:flex;align-items:center;gap:22px}
+  .brand{font-family:Sora;font-weight:800;letter-spacing:1px;font-size:18px;display:flex;align-items:center;gap:10px}
+  .brand .dot{width:13px;height:13px;border-radius:3px;background:var(--orange);box-shadow:var(--glowO)}
+  .nav-links{margin-left:auto;display:flex;gap:8px;align-items:center}
+  .nav-links a{font-size:14px;color:var(--muted-d);padding:9px 14px;border-radius:9px;transition:.2s}
+  .nav-links a:hover{color:var(--white);background:rgba(255,255,255,.05)}
+  .nav-cta{color:var(--ink)!important;background:var(--orange);font-weight:600;
+           box-shadow:var(--glowO)}
+  .nav-cta:hover{background:var(--orange-2)!important;color:var(--ink)!important}
+
+  /* ── hero ── */
+  .hero{position:relative;padding:120px 0 90px;overflow:hidden}
+  .hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+  .orb{position:absolute;border-radius:50%;filter:blur(90px)}
+  .orb.o1{width:560px;height:560px;background:#FF6B35;top:-160px;right:-120px;opacity:.32}
+  .orb.o2{width:480px;height:480px;background:#22D3EE;bottom:-220px;left:-140px;opacity:.18}
+  .grid-bg{position:absolute;inset:0;background-image:
+      linear-gradient(rgba(34,211,238,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(34,211,238,.05) 1px,transparent 1px);
+      background-size:48px 48px;
+      -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000,transparent 75%);
+      mask-image:radial-gradient(ellipse 80% 60% at 50% 30%,#000,transparent 75%)}
+  .mesh-svg{position:absolute;top:40px;right:0;width:620px;max-width:55%;opacity:.55}
+  .hero-in{position:relative;z-index:2;max-width:var(--maxw);margin:0 auto;padding:0 28px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:5px;
+           color:var(--orange-2);text-transform:uppercase;margin-bottom:22px;
+           display:inline-flex;align-items:center;gap:10px}
+  .eyebrow::before{content:"";width:30px;height:1px;background:var(--orange)}
+  h1.title{font-family:Sora;font-weight:800;font-size:clamp(46px,8.5vw,116px);line-height:.92;
+           letter-spacing:-1px;text-transform:uppercase;
+           background:linear-gradient(180deg,#fff 30%,#FFD8C2 100%);
+           -webkit-background-clip:text;background-clip:text;color:transparent;
+           text-shadow:0 0 60px rgba(255,107,53,.25)}
+  h1.title .helix{display:block;color:transparent;
+           background:linear-gradient(92deg,var(--orange) 0%,var(--ember) 60%,var(--orange-2) 100%);
+           -webkit-background-clip:text;background-clip:text;
+           filter:drop-shadow(0 0 36px rgba(255,107,53,.55))}
+  .lede{font-size:clamp(18px,2.1vw,23px);color:#C9D3E6;max-width:640px;margin:30px 0 14px;font-weight:500}
+  .incident{font-family:'JetBrains Mono',monospace;font-size:14.5px;color:var(--muted-d);
+            max-width:660px;line-height:1.7;border-left:2px solid var(--orange);padding-left:18px;margin:22px 0 38px}
+  .incident b{color:#FFB48C;font-weight:600}
+  .cta-row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .btn{font-family:Sora;font-weight:700;font-size:16px;padding:16px 28px;border-radius:13px;
+       display:inline-flex;align-items:center;gap:11px;transition:.22s;border:1px solid transparent;cursor:pointer}
+  .btn-primary{background:linear-gradient(92deg,var(--orange),var(--ember));color:#180a04;
+               box-shadow:var(--glowO)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(255,107,53,.85)}
+  .btn-ghost{border-color:var(--line);color:#fff;background:rgba(255,255,255,.03)}
+  .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:var(--glowC)}
+  .statline{margin-top:54px;display:flex;gap:34px;flex-wrap:wrap;
+            font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--muted-d)}
+  .statline b{color:var(--white);font-weight:600}
+  .statline .s::before{content:"▸ ";color:var(--orange)}
+
+  /* ── section scaffolding ── */
+  section{position:relative}
+  .sec-head{display:flex;align-items:baseline;gap:18px;margin-bottom:40px;flex-wrap:wrap}
+  .sec-head h2{font-family:Sora;font-weight:800;font-size:clamp(28px,4vw,46px);letter-spacing:-.5px}
+  .sec-head .k{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:3px;color:var(--orange-2);text-transform:uppercase}
+
+  /* ── carousel (signature) ── */
+  .reel{padding:96px 0 110px;background:
+        radial-gradient(ellipse 70% 50% at 50% 0%,rgba(255,107,53,.10),transparent 70%)}
+  .reel h2{color:#fff}
+  .stage{position:relative;height:560px;perspective:2200px;margin-top:10px}
+  .card{position:absolute;left:50%;top:50%;width:760px;height:476px;margin:-238px 0 0 -380px;
+        transform-style:preserve-3d;transition:transform .6s cubic-bezier(.22,.85,.25,1),opacity .6s;
+        will-change:transform;cursor:pointer;max-width:88vw}
+  .shot{position:relative;width:100%;height:100%;border-radius:18px;overflow:hidden;
+        border:1px solid var(--line);background:#0C1120;transform-style:preserve-3d;
+        transition:transform .18s ease,box-shadow .3s;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .card.active .shot{border-color:rgba(255,107,53,.6);
+        box-shadow:0 40px 110px rgba(0,0,0,.7),0 0 60px rgba(255,107,53,.35)}
+  .shot img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .18s ease}
+  .shot .ph{display:none}
+  .shot.missing{display:flex;align-items:center;justify-content:center;
+        background:repeating-linear-gradient(45deg,#0C1120,#0C1120 14px,#0E1424 14px,#0E1424 28px)}
+  .shot.missing .ph{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:24px}
+  .shot.missing .ph .ico{width:54px;height:54px;border-radius:14px;border:2px dashed var(--orange);
+        display:flex;align-items:center;justify-content:center;color:var(--orange);font-size:26px}
+  .shot.missing .ph code{font-family:'JetBrains Mono',monospace;font-size:14px;color:#FFB48C;
+        background:rgba(255,107,53,.1);padding:6px 12px;border-radius:8px}
+  .shot.missing .ph small{color:var(--muted-d);font-size:12.5px}
+  .cap{position:absolute;left:18px;bottom:16px;right:18px;display:flex;align-items:center;gap:10px;
+        font-family:'JetBrains Mono',monospace;font-size:14px;color:#fff;
+        text-shadow:0 2px 8px #000;z-index:3}
+  .cap .num{color:var(--orange);font-weight:600}
+  .cap::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,rgba(255,107,53,.6),transparent)}
+  .reel-ctrl{display:flex;align-items:center;justify-content:center;gap:22px;margin-top:38px}
+  .arrow{width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.03);
+        color:#fff;font-size:20px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center}
+  .arrow:hover{border-color:var(--orange);color:var(--orange);box-shadow:var(--glowO)}
+  .dots{display:flex;gap:9px}
+  .dots b{width:9px;height:9px;border-radius:50%;background:var(--line);cursor:pointer;transition:.2s}
+  .dots b.on{background:var(--orange);box-shadow:var(--glowO);width:26px;border-radius:5px}
+
+  /* ── what it does (light section) ── */
+  .light{background:linear-gradient(180deg,#FFFFFF,#FFF7F0);color:#15110E;padding:104px 0}
+  .light .k{color:var(--ember)}
+  .light h2{color:#15110E}
+  .cards3{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+  .feat{background:#fff;border:1px solid #F0E2D8;border-radius:18px;padding:32px 28px;
+        box-shadow:0 12px 40px rgba(255,107,53,.06);transition:.25s}
+  .feat:hover{transform:translateY(-4px);box-shadow:0 22px 60px rgba(255,107,53,.16);border-color:#FFCBB0}
+  .feat .ic{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+        background:linear-gradient(135deg,var(--orange),var(--ember));box-shadow:var(--glowO);margin-bottom:20px}
+  .feat h3{font-family:Sora;font-weight:700;font-size:21px;margin-bottom:10px}
+  .feat p{color:#5C4F47;font-size:15.5px;line-height:1.6}
+  .feat code{font-family:'JetBrains Mono',monospace;font-size:13.5px;color:var(--ember);background:#FFF1E8;padding:1px 7px;border-radius:6px}
+
+  /* ── architecture (dark) ── */
+  .arch{padding:104px 0 96px;background:
+        radial-gradient(ellipse 60% 50% at 80% 20%,rgba(34,211,238,.08),transparent 70%)}
+  .arch-frame{margin-top:8px;border:1px solid var(--line);border-radius:20px;overflow:hidden;
+        background:#0B0F1B;box-shadow:0 30px 90px rgba(0,0,0,.55),inset 0 0 80px rgba(255,107,53,.04)}
+  .arch-frame object,.arch-frame img{width:100%;display:block}
+  .arch-note{margin-top:22px;font-size:15.5px;color:#C9D3E6;max-width:760px;line-height:1.7}
+  .arch-note b{color:#FFB48C;font-weight:600}
+
+  /* ── final CTA (orange band) ── */
+  .band{background:linear-gradient(100deg,var(--ember),var(--orange) 70%);color:#1a0b04;
+        padding:84px 0;text-align:center}
+  .band h2{font-family:Sora;font-weight:800;font-size:clamp(30px,5vw,52px);letter-spacing:-.5px;margin-bottom:14px}
+  .band p{font-size:18px;opacity:.85;margin-bottom:32px;font-weight:500}
+  .band .btn{background:#0A0E17;color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+  .band .btn:hover{transform:translateY(-2px);background:#000}
+
+  /* ── footer ── */
+  footer{background:var(--ink);border-top:1px solid var(--line);padding:54px 0 60px}
+  .foot-in{display:flex;flex-wrap:wrap;gap:24px;align-items:center;justify-content:space-between}
+  .foot-links{display:flex;gap:8px;flex-wrap:wrap}
+  .foot-links a{font-size:14px;color:var(--muted-d);padding:8px 12px;border-radius:8px;transition:.2s}
+  .foot-links a:hover{color:#fff;background:rgba(255,255,255,.05)}
+  .foot-meta{font-family:'JetBrains Mono',monospace;font-size:13px;color:#5A6478}
+  .foot-meta b{color:var(--orange-2)}
+
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s,transform .7s}
+  .reveal.in{opacity:1;transform:none}
+
+  @media(max-width:880px){
+    .nav-links a:not(.nav-cta){display:none}
+    .mesh-svg{display:none}
+    .cards3{grid-template-columns:1fr}
+    .stage{height:430px}
+    .card{width:560px;height:350px;margin:-175px 0 0 -280px}
+  }
+  @media(prefers-reduced-motion:reduce){
+    *{animation:none!important;scroll-behavior:auto}
+    .card{transition:none}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-in">
+    <a href="#top" class="brand"><span class="dot"></span>TITAN HELIX</a>
+    <div class="nav-links">
+      <a href="demo.html">live demo</a>
+      <a href="#architecture">architecture</a>
+      <a href="https://github.com/a-y-u-1/titan-helix" target="_blank" rel="noopener">github</a>
+      <a href="demo.html" class="nav-cta">Launch demo →</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ════ HERO ════ -->
+<header class="hero" id="top">
+  <div class="hero-bg">
+    <div class="grid-bg"></div>
+    <div class="orb o1"></div><div class="orb o2"></div>
+    <svg class="mesh-svg" viewBox="0 0 600 560" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <style>
+        .ed{stroke:#22D3EE;stroke-opacity:.25;stroke-width:1.5}
+        .nd{fill:#0E1322;stroke:#22D3EE;stroke-width:2}
+        .pulse{animation:pl 2.6s ease-in-out infinite}
+        @keyframes pl{0%,100%{opacity:.5}50%{opacity:1}}
+        .hot{fill:#1a0b06;stroke:#FF6B35;animation:hp 2.2s ease-in-out infinite}
+        @keyframes hp{0%,100%{filter:drop-shadow(0 0 4px #FF6B35)}50%{filter:drop-shadow(0 0 18px #FF6B35)}}
+      </style>
+      <path class="ed" d="M300 110 L150 220 M300 110 L450 200 M150 220 L120 380 M150 220 L300 320 M450 200 L470 360 M300 320 L470 360 M300 320 L260 470 M470 360 L420 480 M120 380 L260 470"/>
+      <circle class="nd pulse" cx="300" cy="110" r="13"/><circle class="nd pulse" cx="150" cy="220" r="11" style="animation-delay:.3s"/>
+      <circle class="nd pulse" cx="450" cy="200" r="11" style="animation-delay:.6s"/><circle class="nd pulse" cx="120" cy="380" r="10" style="animation-delay:.9s"/>
+      <circle class="hot" cx="300" cy="320" r="15"/>
+      <circle class="nd pulse" cx="470" cy="360" r="11" style="animation-delay:.4s"/><circle class="nd pulse" cx="260" cy="470" r="10" style="animation-delay:.7s"/>
+      <circle class="nd pulse" cx="420" cy="480" r="9" style="animation-delay:1s"/>
+    </svg>
+  </div>
+  <div class="hero-in">
+    <span class="eyebrow">Splunk Agentic Ops · agentic AIOps</span>
+    <h1 class="title">Titan<span class="helix">Helix</span></h1>
+    <p class="lede">An autonomous reasoning mesh that sits on your Splunk data and explains failures <em>while they unfold</em>.</p>
+    <p class="incident">A feature-store database drifts to 94% CPU. It's slow, not broken — every query still returns <b>200 OK</b>, so error-rate alerting stays quiet. Ninety seconds later checkout is throwing 503s and a region goes dark. <b>TITAN HELIX already knew the database was the cause.</b></p>
+    <div class="cta-row">
+      <a href="demo.html" class="btn btn-primary">▶ Launch the live demo</a>
+      <a href="https://github.com/a-y-u-1/titan-helix" target="_blank" rel="noopener" class="btn btn-ghost">View source on GitHub</a>
+    </div>
+    <div class="statline">
+      <span class="s">29 <b>services</b></span><span class="s">6 reasoning <b>agents</b></span>
+      <span class="s">7 Splunk <b>indexes</b></span><span class="s"><b>MCP</b>-native tool fabric</span>
+    </div>
+  </div>
+</header>
+
+<!-- ════ CAROUSEL ════ -->
+<section class="reel wrap" id="see">
+  <div class="sec-head reveal"><span class="k">// see it move</span><h2>The incident, explorable</h2></div>
+  <div class="stage" id="stage">
+    <figure class="card"><div class="shot"><img src="assets/screens/01.png" alt="Live dependency graph" loading="lazy"><span class="ph"><span class="ico">⊞</span><code>assets/screens/01.png</code><small>add your screenshot here</small></span></div><figcaption class="cap"><span class="num">01</span> Live dependency graph</figcaption></figure>
+    <figure class="card"><div class="shot"><img src="assets/screens/02.png" alt="Incident cascade in motion" loading="lazy"><span class="ph"><span class="ico">⊞</span><code>assets/screens/02.png</code><small>add your screenshot here</small></span></div><figcaption class="cap"><span class="num">02</span> Cascade in motion</figcaption></figure>
+    <figure class="card"><div class="shot"><img src="assets/screens/03.png" alt="Six-agent reasoning mesh" loading="lazy"><span class="ph"><span class="ico">⊞</span><code>assets/screens/03.png</code><small>add your screenshot here</small></span></div><figcaption class="cap"><span class="num">03</span> Six-agent reasoning mesh</figcaption></figure>
+    <figure class="card"><div class="shot"><img src="assets/screens/04.png" alt="Blast-radius prediction" loading="lazy"><span class="ph"><span class="ico">⊞</span><code>assets/screens/04.png</code><small>add your screenshot here</small></span></div><figcaption class="cap"><span class="num">04</span> Blast-radius prediction</figcaption></figure>
+    <figure class="card"><div class="shot"><img src="assets/screens/05.png" alt="SPL behind every claim" loading="lazy"><span class="ph"><span class="ico">⊞</span><code>assets/screens/05.png</code><small>add your screenshot here</small></span></div><figcaption class="cap"><span class="num">05</span> The SPL behind every claim</figcaption></figure>
+    <figure class="card"><div class="shot"><img src="assets/screens/06.png" alt="Presenter shell" loading="lazy"><span class="ph"><span class="ico">⊞</span><code>assets/screens/06.png</code><small>add your screenshot here</small></span></div><figcaption class="cap"><span class="num">06</span> Presenter shell · Live ⇄ Demo</figcaption></figure>
+  </div>
+  <div class="reel-ctrl">
+    <button class="arrow" id="prev" aria-label="Previous">‹</button>
+    <div class="dots" id="dots"></div>
+    <button class="arrow" id="next" aria-label="Next">›</button>
+  </div>
+</section>
+
+<!-- ════ WHAT IT DOES (light) ════ -->
+<section class="light">
+  <div class="wrap">
+    <div class="sec-head reveal"><span class="k">// what it actually does</span><h2>Not another dashboard</h2></div>
+    <div class="cards3">
+      <div class="feat reveal">
+        <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#180a04" stroke-width="2.2"><path d="M3 17l5-5 4 3 6-7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="18" cy="8" r="1.6" fill="#180a04"/></svg></div>
+        <h3>Finds the cause, not the symptom</h3>
+        <p>The root cause is CPU-bound but <code>200 OK</code> — invisible to error-rate alerts. The mesh catches the silent climb before the first 503 ever fires.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#180a04" stroke-width="2.2"><circle cx="7" cy="8" r="2.4"/><circle cx="17" cy="8" r="2.4"/><circle cx="12" cy="16" r="2.4"/><path d="M9 9.5l2 5M15 9.5l-2 5M9 8h6" stroke-linecap="round"/></svg></div>
+        <h3>Reasons in the open</h3>
+        <p>Six specialist agents — observer, memory, correlation, prediction, remediation, executive — converge on a verdict, each citing the exact SPL that backs it.</p>
+      </div>
+      <div class="feat reveal">
+        <div class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#180a04" stroke-width="2.2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5" stroke-linecap="round"/></svg></div>
+        <h3>Splunk-native, MCP-standard</h3>
+        <p>Agents reach Splunk through the Model Context Protocol — typed tool calls, not glue code. Point it at a real deployment and the reasoning layer doesn't change a line.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════ ARCHITECTURE (dark) ════ -->
+<section class="arch wrap" id="architecture">
+  <div class="sec-head reveal"><span class="k">// how it's wired</span><h2>Architecture</h2></div>
+  <div class="arch-frame reveal">
+    <object data="docs/architecture.svg" type="image/svg+xml" aria-label="TITAN HELIX architecture diagram">
+      <img src="docs/architecture.svg" alt="TITAN HELIX architecture diagram">
+    </object>
+  </div>
+  <p class="arch-note reveal">Telemetry enters <b>Splunk</b> over HEC across seven indexes and is queried back over SPL — the graph and every drill-down are SPL results, not a side database. The <b>AI mesh</b> reasons over those results and reaches Splunk through <b>MCP</b>, so the model calls typed tools instead of hard-coded queries — the same seam that lets it run against a production Splunk. <a href="docs/architecture.svg" target="_blank" rel="noopener" style="color:var(--cyan)">Open the full animated diagram →</a></p>
+</section>
+
+<!-- ════ FINAL CTA ════ -->
+<section class="band">
+  <div class="wrap">
+    <h2>See it diagnose a live failure</h2>
+    <p>Forty seconds, no install — it plays the whole cascade in your browser.</p>
+    <a href="demo.html" class="btn">▶ Launch the live demo</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <a href="#top" class="brand"><span class="dot"></span>TITAN HELIX</a>
+    <div class="foot-links">
+      <a href="demo.html">Live demo</a>
+      <a href="https://github.com/a-y-u-1/titan-helix" target="_blank" rel="noopener">GitHub</a>
+      <a href="docs/architecture.svg" target="_blank" rel="noopener">Architecture</a>
+      <a href="https://github.com/a-y-u-1/titan-helix/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+    </div>
+    <div class="foot-meta">Built for the <b>Splunk Agentic Ops Hackathon</b> · ayushsplunk.dev</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var stage=document.getElementById('stage');
+  var cards=[].slice.call(stage.querySelectorAll('.card'));
+  var dotsBox=document.getElementById('dots');
+  var N=cards.length, active=0;
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  cards.forEach(function(_,i){ var b=document.createElement('b'); b.addEventListener('click',function(){go(i);}); dotsBox.appendChild(b); });
+  var dots=[].slice.call(dotsBox.children);
+
+  cards.forEach(function(c){
+    var img=c.querySelector('img'), shot=c.querySelector('.shot');
+    img.addEventListener('error',function(){ shot.classList.add('missing'); img.remove(); });
+    if(img.complete && img.naturalWidth===0){ shot.classList.add('missing'); img.remove(); }
+  });
+
+  function layout(){
+    cards.forEach(function(c,i){
+      var off=i-active;
+      if(off> N/2) off-=N; if(off< -N/2) off+=N;
+      var ax=Math.abs(off);
+      c.style.transform='translateX('+(off*340)+'px) translateZ('+(-ax*300)+'px) rotateY('+(off*-30)+'deg) scale('+Math.max(.7,1-ax*.13)+')';
+      c.style.opacity = ax>2?0:(off===0?1:(ax===1?.62:.22));
+      c.style.zIndex = 100-ax;
+      c.style.pointerEvents = ax<=1?'auto':'none';
+      c.classList.toggle('active', off===0);
+    });
+    dots.forEach(function(d,i){ d.classList.toggle('on', i===active); });
+  }
+  function go(n){ active=((n%N)+N)%N; layout(); }
+
+  document.getElementById('prev').addEventListener('click',function(){go(active-1);});
+  document.getElementById('next').addEventListener('click',function(){go(active+1);});
+  cards.forEach(function(c,i){ c.addEventListener('click',function(){ if(i!==active) go(i); }); });
+
+  var timer=null;
+  function start(){ if(reduce) return; stop(); timer=setInterval(function(){go(active+1);},4200); }
+  function stop(){ if(timer) clearInterval(timer); timer=null; }
+  stage.addEventListener('mouseenter',stop);
+  stage.addEventListener('mouseleave',function(){ resetTilt(); start(); });
+
+  function resetTilt(){
+    var c=cards[active]; if(!c) return;
+    var shot=c.querySelector('.shot'), img=c.querySelector('img');
+    shot.style.transform=''; if(img) img.style.transform='';
+  }
+  if(!reduce){
+    stage.addEventListener('mousemove',function(e){
+      var c=cards[active]; if(!c) return;
+      var shot=c.querySelector('.shot'), img=c.querySelector('img');
+      var r=c.getBoundingClientRect();
+      var dx=(e.clientX-(r.left+r.width/2))/(r.width/2);
+      var dy=(e.clientY-(r.top+r.height/2))/(r.height/2);
+      dx=Math.max(-1,Math.min(1,dx)); dy=Math.max(-1,Math.min(1,dy));
+      shot.style.transform='rotateY('+(dx*9)+'deg) rotateX('+(-dy*9)+'deg)';
+      if(img) img.style.transform='scale(1.07) translate('+(-dx*14)+'px,'+(-dy*14)+'px)';
+    });
+  }
+
+  layout(); start();
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowLeft') go(active-1);
+    if(e.key==='ArrowRight') go(active+1);
+  });
+
+  var io=new IntersectionObserver(function(es){ es.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target);} }); },{threshold:.15});
+  document.querySelectorAll('.reveal').forEach(function(el){ io.observe(el); });
+})();
+</script>
+</body>
+</html>
