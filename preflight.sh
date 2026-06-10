@@ -77,8 +77,8 @@ if echo "$health" | grep -q '"status"' || [ -n "$health" ] && curl -fs "$BASE/he
 else no "/health not responding" "start it: source .helix.env && source .venv/bin/activate && python3 -m uvicorn backend.app:app --host 0.0.0.0 --port $PORT"; fi
 
 heccfg="$(echo "$health" | jqr '.hec_configured // false')"
-[ "$heccfg" = "true" ] && ok "inject armed (HEC configured in backend)" \
-  || wn "inject NOT armed — Inject button will fall back to projected mode (HELIX_HEC_TOKEN missing in backend env)"
+[ "$heccfg" = "true" ] && ok "HEC configured in backend (optional CLI live-injection available)" \
+  || wn "HEC not in backend env — only needed for the optional CLI live-injection, not for the demo"
 
 nodes="$(curl -fs --max-time 12 "$BASE/api/graph" 2>/dev/null | jqr '.nodes|length // 0')"
 nodes="${nodes:-0}"; case "$nodes" in ''|*[!0-9]*) nodes=0;; esac

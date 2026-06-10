@@ -11,7 +11,8 @@ titan-helix/
 │                               starts the backend. Idempotent — safe to re-run.
 ├── preflight.sh              ★ PRE-DEMO GATE. GO/NO-GO check: data in indexes, AI chain
 │                               returns, inject armed, all pages serve. Run before a judge.
-├── README.md                   Start-here doc + quickstart (the only setup guide).
+├── README.md                   Judge-facing overview + winning strategy + quickstart.
+├── LICENSE                     MIT — open source (required: visible license).
 ├── PREFLIGHT.md                Printable checklist: visual pass + demo script + rebuttals.
 ├── .gitignore                  Keeps venv / data / logs / .helix.env out of git.
 │
@@ -25,8 +26,8 @@ titan-helix/
 │                               resolved incidents (powers the Memory agent's recall).
 ├── load_to_splunk.py           Batch-loads a JSONL dump into Splunk over HEC.
 │
-├── console.html                LIVE console — served at  /        (queries Splunk live)
-├── demo.html                   SCRIPTED demo — served at  /demo   (no backend needed)
+├── console.html                LIVE console — served at  /     (REAL Splunk data, no scripted cascade)
+├── demo.html                   SCRIPTED demo — served at  /demo  (the incident cascade; no backend needed)
 ├── stage.html                  PRESENTER shell — served at /stage (Live ⇄ Demo toggle)
 │
 ├── backend/
@@ -42,7 +43,7 @@ titan-helix/
 │
 └── docs/                       Reference only — NOT needed to run the system.
     ├── ARCHITECTURE.md         Full 16-section principal-architect design document.
-    └── architecture.html       Animated SVG data-flow diagram (pitch asset).
+    └── architecture.svg        Animated 4K architecture diagram (browser-animated, Inkscape-editable).
 ```
 
 ## Generated at runtime (not in the repo — created by setup.sh / on first run)

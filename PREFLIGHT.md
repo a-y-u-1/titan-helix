@@ -67,8 +67,8 @@ needs zero backend data and cannot desync — it's your safety net. Never debug 
 
 ## 🎬 60-second demo script (what to click + say)
 
-1. **Open `/stage` (Live).** "This is a live view of an enterprise's service graph — 29 services, dependencies *inferred by AI* from trace data, not hand-drawn. Every node is green: healthy."
-2. **Hit `⚡ Inject checkout_collapse`** (or press **D** for the guaranteed-clean scripted run). "I'm injecting a real failure scenario."
+1. **Open `/stage` (Live).** "This is a *live* view of an enterprise's service graph — 29 services, dependencies *inferred by AI* from trace data, not hand-drawn. This is real Splunk data: right now everything's green and healthy."
+2. **Press `D` → Demo.** "Now I'll show a real failure scenario play out. This is our scripted incident — deterministic, so it runs the same every time." (Pop-up confirms it's mocked data.)
 3. **Point at `feature-store-db` going red first.** "Notice the root cause lights up *before* any errors appear — it's CPU-saturated but still returning 200s. That's the silent failure normal alerting misses."
 4. **Follow the cascade.** "It propagates along the dependency edges — fraud-scoring times out, checkout-api throws 503s, and ap-south-1 POS terminals drop. Five services, in order."
 5. **Open AI Reasoning** (auto-opens in demo). "Six agents reason over the live data: Observer flags the CPU anomaly, **Memory recalls the matching past incident**, Correlation proves checkout-api is a symptom not the cause, Prediction forecasts the POS outage, Remediation ranks the fix. The Executive verdict: root cause feature-store-db, deploy the hotfix."
