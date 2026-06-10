@@ -58,6 +58,7 @@ splunk = SplunkClient.from_env()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CONSOLE_HTML = PROJECT_ROOT / "console.html"
 DEMO_HTML = PROJECT_ROOT / "demo.html"
+STAGE_HTML = PROJECT_ROOT / "stage.html"
 
 # service-name guard (prevents SPL injection via the drill-down path param)
 SAFE_NAME = re.compile(r"^[A-Za-z0-9_.-]{1,64}$")
@@ -101,6 +102,11 @@ index=helix_incidents sourcetype="helix:incidents:servicenow"
 SPL_TIMELINE = """
 index=helix_logs sourcetype="helix:logs:app" level=ERROR
 | timechart span=1m count by service limit=8
+""".strip()
+
+SPL_SERVICE_CPU = """
+index=helix_metrics sourcetype="helix:metrics:cpu"
+| stats avg(cpu_pct) as cpu, max(cpu_pct) as max_cpu by service
 """.strip()
 
 # ── per-service drill-down (use .format(service=...)) ──
@@ -170,6 +176,13 @@ def demo():
         return FileResponse(str(DEMO_HTML))
     return JSONResponse({"message": "demo.html not found"})
 
+@app.get("/stage")
+def stage():
+    """Presenter shell — toggles between the live console and the scripted demo."""
+    if STAGE_HTML.exists():
+        return FileResponse(str(STAGE_HTML))
+    return JSONResponse({"message": "stage.html not found"})
+
 
 @app.get("/health")
 def health():
@@ -190,6 +203,8 @@ def graph(earliest: str = "-15m@m"):
 
     health_rows = splunk.search(SPL_SERVICE_HEALTH, earliest=earliest)
     health = {r["service"]: r for r in health_rows}
+    cpu_rows = splunk.search(SPL_SERVICE_CPU, earliest=earliest)
+    cpu = {r["service"]: r for r in cpu_rows}
 
     nodes: dict[str, dict] = {}
     edges = []
@@ -198,11 +213,20 @@ def graph(earliest: str = "-15m@m"):
         if name not in nodes:
             h = health.get(name, {})
             err = float(h.get("error_rate", 0) or 0)
+            c = cpu.get(name, {})
+            cpu_avg = float(c.get("cpu", 0) or 0)
+            cpu_max = float(c.get("max_cpu", 0) or 0)
+            # a node is unhealthy if EITHER errors OR cpu saturation is high —
+            # this is what lets the root cause (a saturating DB with no errors
+            # yet) turn red before the downstream error cascade begins.
+            state = ("critical" if (err > 0.2 or cpu_max > 90) else
+                     "degraded" if (err > 0.03 or cpu_max > 75) else "healthy")
             nodes[name] = {
-                "id": f"svc:{name}", "label": name, "error_rate": err,
+                "id": f"svc:{name}", "label": name,
+                "error_rate": err, "cpu": round(cpu_avg, 1),
+                "cpu_max": round(cpu_max, 1),
                 "calls_total": int(float(h.get("total", 0) or 0)),
-                "state": ("critical" if err > 0.2 else
-                          "degraded" if err > 0.03 else "healthy"),
+                "state": state,
             }
 
     for r in rows:
@@ -424,16 +448,19 @@ def _sample_graph():
              ("checkout-api", "payment-orchestrator", 0.0),
              ("payment-orchestrator", "payment-gateway", 0.0)]
     err = {"feature-store-db": 0.31, "fraud-scoring": 0.18, "checkout-api": 0.31}
+    cpu = {"feature-store-db": 97.0, "fraud-scoring": 71.0}
     nodes, seen = [], set()
     for s, t, _ in chain:
         for n in (s, t):
             if n not in seen:
                 seen.add(n)
                 e = err.get(n, 0.0)
+                cmax = cpu.get(n, 22.0)
                 nodes.append({"id": f"svc:{n}", "label": n, "error_rate": e,
+                              "cpu": round(cmax * 0.9, 1), "cpu_max": cmax,
                               "calls_total": 5000,
-                              "state": ("critical" if e > 0.2 else
-                                        "degraded" if e > 0.03 else "healthy")})
+                              "state": ("critical" if (e > 0.2 or cmax > 90) else
+                                        "degraded" if (e > 0.03 or cmax > 75) else "healthy")})
     edges = [{"id": f"e:{s}->{t}", "source": f"svc:{s}", "target": f"svc:{t}",
               "calls": 8000, "avg_ms": 120.0, "error_rate": er,
               "layer": "L1_observed", "confidence": 0.95}

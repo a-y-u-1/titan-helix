@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TITAN HELIX — Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Sora:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0E0E10; --bg2:#1C1C24; --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.16);
+    --ink:#ECEFF1; --ink2:#B8BCC4; --ink3:#6F7480;
+    --accent:#FF6B35; --green:#7CF3A0; --purple:#B388FF; --red:#FF4757;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:'Sora',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  button{font-family:inherit;cursor:pointer;}
+
+  #bar{position:fixed;top:0;left:0;right:0;height:46px;display:flex;align-items:center;
+    gap:18px;padding:0 16px;background:rgba(14,14,16,.92);border-bottom:1px solid var(--line);
+    backdrop-filter:blur(12px);z-index:30;}
+  .wm{display:flex;align-items:center;gap:9px;font-family:'Fraunces',serif;font-size:15px;font-weight:500;}
+  .wm .logo{width:26px;height:26px;border-radius:6px;
+    background:linear-gradient(135deg,var(--accent),#FF4757);display:grid;place-items:center;
+    color:#fff;font-weight:600;font-size:14px;box-shadow:0 0 18px rgba(255,107,53,.45);}
+  .wm .sub{font-family:'Sora';font-size:9.5px;color:var(--ink3);text-transform:uppercase;
+    letter-spacing:.16em;font-weight:400;margin-left:2px;}
+
+  .seg{display:flex;background:var(--bg2);border:1px solid var(--line2);border-radius:9px;
+    padding:3px;margin-left:8px;}
+  .seg-btn{font-size:12.5px;font-weight:500;padding:6px 16px;border:none;border-radius:7px;
+    background:none;color:var(--ink3);transition:all .15s;display:flex;align-items:center;gap:7px;}
+  .seg-btn:hover{color:var(--ink2);}
+  .seg-btn.active{color:#fff;}
+  .seg-btn.live.active{background:rgba(124,243,160,.16);color:var(--green);}
+  .seg-btn.demo.active{background:rgba(179,136,255,.18);color:var(--purple);}
+
+  .kbd{margin-left:auto;font-size:10px;color:var(--ink3);font-family:'JetBrains Mono',monospace;}
+  .kbd b{color:var(--ink2);background:var(--bg2);border:1px solid var(--line);border-radius:4px;
+    padding:1px 6px;margin:0 1px;}
+
+  #modeBadge{font-size:10.5px;font-family:'JetBrains Mono',monospace;padding:5px 11px;
+    border-radius:7px;letter-spacing:.04em;border:1px solid var(--line2);white-space:nowrap;}
+  #modeBadge.live{color:var(--green);border-color:rgba(124,243,160,.4);background:rgba(124,243,160,.08);}
+  #modeBadge.demo{color:var(--purple);border-color:rgba(179,136,255,.45);background:rgba(179,136,255,.1);
+    animation:badgePulse 2.4s infinite;}
+  @keyframes badgePulse{0%,100%{box-shadow:0 0 0 0 rgba(179,136,255,0);}50%{box-shadow:0 0 0 4px rgba(179,136,255,.12);}}
+
+  #frames{position:fixed;top:46px;left:0;right:0;bottom:0;}
+  iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg);
+    opacity:0;pointer-events:none;transition:opacity .25s;}
+  iframe.active{opacity:1;pointer-events:auto;}
+
+  /* mocked-data pop-up */
+  .popup{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:rgba(8,8,10,.72);backdrop-filter:blur(6px);opacity:0;pointer-events:none;
+    transition:opacity .3s;}
+  .popup.show{opacity:1;pointer-events:auto;}
+  .popup-card{width:min(420px,90vw);background:var(--bg2);border:1px solid rgba(179,136,255,.4);
+    border-radius:16px;padding:26px 26px 22px;text-align:center;
+    box-shadow:0 24px 70px rgba(0,0,0,.6),0 0 40px rgba(179,136,255,.15);
+    transform:translateY(10px) scale(.98);transition:transform .3s cubic-bezier(.2,.8,.2,1);}
+  .popup.show .popup-card{transform:translateY(0) scale(1);}
+  .pc-ic{width:48px;height:48px;border-radius:13px;margin:0 auto 14px;display:grid;place-items:center;
+    background:rgba(179,136,255,.16);color:var(--purple);font-size:22px;}
+  .pc-title{font-family:'Fraunces',serif;font-size:20px;font-weight:500;margin-bottom:9px;}
+  .pc-body{font-size:13.5px;line-height:1.6;color:var(--ink2);margin-bottom:18px;}
+  .pc-body b{color:var(--purple);font-weight:600;}
+  .pc-ok{font-size:12.5px;font-weight:500;color:#fff;background:linear-gradient(135deg,var(--purple),#7C5CFF);
+    border:none;border-radius:9px;padding:9px 22px;box-shadow:0 0 18px rgba(179,136,255,.35);}
+  .pc-ok:hover{box-shadow:0 0 26px rgba(179,136,255,.55);}
+  .pc-auto{font-size:10px;color:var(--ink3);margin-top:11px;font-family:'JetBrains Mono',monospace;}
+
+  /* tiny offline hint if live can't load */
+  .offline{position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:20;
+    background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.35);color:var(--red);
+    font-size:11.5px;padding:8px 14px;border-radius:9px;display:none;align-items:center;gap:9px;
+    font-family:'JetBrains Mono',monospace;}
+  .offline.show{display:flex;}
+  .offline button{background:none;border:1px solid rgba(255,71,87,.4);color:var(--red);
+    border-radius:6px;font-size:10.5px;padding:3px 9px;}
+</style>
+</head>
+<body>
+  <div id="bar">
+    <div class="wm"><span class="logo">H</span>TITAN HELIX<span class="sub">Command Center</span></div>
+    <div class="seg">
+      <button id="liveTab" class="seg-btn live active">&#9673; Live · real data</button>
+      <button id="demoTab" class="seg-btn demo">&#9654; Demo · scripted</button>
+    </div>
+    <span class="kbd">press <b>L</b> live · <b>D</b> demo</span>
+    <span id="modeBadge" class="live">&#9679; LIVE · Splunk</span>
+  </div>
+
+  <div id="frames">
+    <iframe id="liveFrame" class="active" src="/" title="Live console"></iframe>
+    <iframe id="demoFrame" src="about:blank" title="Scripted demo"></iframe>
+  </div>
+
+  <div id="offline" class="offline">
+    <span>Live backend didn't respond — present the Demo instead.</span>
+    <button id="offlineDemo">Switch to Demo</button>
+  </div>
+
+  <div id="popup" class="popup">
+    <div class="popup-card">
+      <div class="pc-ic">&#9654;</div>
+      <div class="pc-title">Switching to Demo view</div>
+      <div class="pc-body">You're now viewing <b>synthetic, mocked-up data</b> from a scripted scenario — no live Splunk backend. Same interface, fully deterministic, replays on demand.</div>
+      <button id="popupOk" class="pc-ok">Got it</button>
+      <div class="pc-auto">auto-continues in <span id="popupCount">2</span>s</div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+const liveFrame=document.getElementById("liveFrame");
+const demoFrame=document.getElementById("demoFrame");
+const liveTab=document.getElementById("liveTab");
+const demoTab=document.getElementById("demoTab");
+const modeBadge=document.getElementById("modeBadge");
+const popup=document.getElementById("popup");
+let mode="live", popupTimer=null, countTimer=null;
+
+function setTabs(m){
+  liveTab.classList.toggle("active", m==="live");
+  demoTab.classList.toggle("active", m==="demo");
+}
+function showLive(){
+  mode="live";
+  demoFrame.classList.remove("active");
+  liveFrame.classList.add("active");
+  // free the demo (stops its timers/animation) so a later switch replays cleanly
+  demoFrame.src="about:blank";
+  modeBadge.className="live"; modeBadge.innerHTML="&#9679; LIVE · Splunk";
+  setTabs("live");
+  hidePopup();
+}
+function showDemo(){
+  mode="demo";
+  // (re)load the demo so it plays fresh from the top every time
+  demoFrame.src="/demo?ts="+Date.now();
+  liveFrame.classList.remove("active");
+  demoFrame.classList.add("active");
+  modeBadge.className="demo"; modeBadge.innerHTML="&#9679; DEMO · mocked data";
+  setTabs("demo");
+  document.getElementById("offline").classList.remove("show");
+  openPopup();
+}
+function openPopup(){
+  popup.classList.add("show");
+  let n=2; document.getElementById("popupCount").textContent=n;
+  clearInterval(countTimer);
+  countTimer=setInterval(()=>{ n-=1; document.getElementById("popupCount").textContent=Math.max(0,n);
+    if(n<=0) clearInterval(countTimer); },1000);
+  clearTimeout(popupTimer);
+  popupTimer=setTimeout(hidePopup,2200);
+}
+function hidePopup(){ popup.classList.remove("show"); clearTimeout(popupTimer); clearInterval(countTimer); }
+
+liveTab.addEventListener("click",showLive);
+demoTab.addEventListener("click",()=>{ showDemo(); });   // clicking Demo again = replay
+document.getElementById("popupOk").addEventListener("click",hidePopup);
+document.getElementById("offlineDemo").addEventListener("click",showDemo);
+
+document.addEventListener("keydown",e=>{
+  if(e.target&&/INPUT|TEXTAREA/.test(e.target.tagName)) return;
+  const k=e.key.toLowerCase();
+  if(k==="l") showLive();
+  else if(k==="d") showDemo();
+  else if(k==="escape") hidePopup();
+});
+
+// best-effort check that the live backend is up; if not, surface the offline hint
+fetch("/health",{cache:"no-store"}).then(r=>{ if(!r.ok) throw 0; })
+  .catch(()=>{ document.getElementById("offline").classList.add("show"); });
+</script>
+</body>
+</html>

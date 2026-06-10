@@ -18,7 +18,6 @@
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
     font-family:'Sora',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
-  .mono{font-family:'JetBrains Mono',monospace;}
   button{font-family:inherit;cursor:pointer;}
 
   .app{display:flex;flex-direction:column;height:100vh;}
@@ -220,8 +219,8 @@
   .focus-banner.show{display:flex;}
   .focus-banner button{background:none;border:none;color:var(--accent);font-size:14px;line-height:1;}
 
-  .hud{position:absolute;left:50%;bottom:20px;transform:translateX(-50%) translateY(120px);
-    width:min(820px,calc(100% - 460px));background:rgba(16,16,20,.94);
+  .hud{position:absolute;left:50%;bottom:20px;transform:translateX(-50%) translateY(140px);
+    width:min(860px,calc(100% - 460px));background:rgba(16,16,20,.95);
     border:1px solid var(--line2);border-radius:14px;padding:14px 18px;z-index:25;
     backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.55);
     transition:transform .4s cubic-bezier(.2,.8,.2,1);}
@@ -230,16 +229,21 @@
   .hud-title{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);
     display:flex;align-items:center;gap:8px;}
   .hud-title .live-dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:pulse 1.2s infinite;}
+  .hud-title.done .live-dot{background:var(--green);animation:none;}
   .hud-clock{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink3);}
   .hud-close{background:none;border:none;color:var(--ink3);font-size:16px;line-height:1;}
   .hud-track{display:flex;gap:5px;margin-bottom:11px;}
-  .ph{flex:1;height:7px;border-radius:4px;background:var(--bg3);position:relative;overflow:hidden;transition:background .3s;}
+  .ph{flex:1;height:9px;border-radius:4px;background:var(--bg3);position:relative;overflow:hidden;
+    transition:background .3s;cursor:pointer;}
+  .ph:hover{outline:1px solid var(--ink3);}
   .ph.done{background:var(--green);}
   .ph.active{background:var(--amber);}
+  .ph.sel{box-shadow:0 0 0 2px var(--ink);}
   .ph.active::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);animation:sweep 1.1s linear infinite;}
   @keyframes sweep{from{transform:translateX(-100%);}to{transform:translateX(100%);}}
-  .hud-now{font-size:13px;color:var(--ink);margin-bottom:8px;font-weight:500;}
+  .hud-now{font-size:13px;color:var(--ink);margin-bottom:6px;font-weight:500;}
   .hud-now b{color:var(--amber);}
+  .hud-detail{font-size:11.5px;color:var(--ink2);line-height:1.5;margin-bottom:9px;min-height:34px;}
   .hud-affected{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
   .hud-affected .lbl{font-size:9.5px;color:var(--ink3);text-transform:uppercase;letter-spacing:.1em;margin-right:3px;}
   .chip{font-family:'JetBrains Mono',monospace;font-size:10.5px;padding:3px 9px;border-radius:20px;
@@ -263,14 +267,14 @@
       <span id="sourcePill" class="pill"><span class="dot"></span><span id="sourceText">connecting…</span></span>
       <span class="count-stat"><b id="nodeCount">0</b> services · <b id="edgeCount">0</b> deps</span>
       <select id="windowSel" class="btn" title="Time window">
+        <option value="-2m@m">live tail · 2 min</option>
+        <option value="-5m@m" selected>last 5 min</option>
         <option value="-15m@m">last 15 min</option>
         <option value="-60m@m">last 60 min</option>
-        <option value="-4h@h">last 4 hrs</option>
         <option value="-8d@d">last 8 days</option>
       </select>
       <button id="liveBtn" class="btn on" title="Toggle live polling">● Live</button>
       <button id="refreshBtn" class="btn" title="Refresh now">↻</button>
-      <button id="injectBtn" class="btn primary">⚡ Inject checkout_collapse</button>
     </div>
   </header>
 
@@ -279,10 +283,10 @@
       <div class="bg-grid"></div>
       <svg id="graph"></svg>
       <div class="legend">
-        <div class="lh">service health</div>
+        <div class="lh">node health (errors OR cpu)</div>
         <div class="lr"><span class="ld" style="background:var(--green)"></span>healthy</div>
-        <div class="lr"><span class="ld" style="background:var(--amber)"></span>degraded &gt;3%</div>
-        <div class="lr"><span class="ld" style="background:var(--red)"></span>critical &gt;20%</div>
+        <div class="lr"><span class="ld" style="background:var(--amber)"></span>degraded</div>
+        <div class="lr"><span class="ld" style="background:var(--red)"></span>critical</div>
         <div class="lh" style="margin-top:10px">interaction</div>
         <div class="lr" style="font-size:10px;color:var(--ink3)">click node → drill down + AI · drag to pin</div>
       </div>
@@ -291,16 +295,6 @@
       </div>
       <div id="toast" class="toast"><span class="ic"></span><span id="toastText"></span></div>
 
-      <div id="hud" class="hud">
-        <div class="hud-top">
-          <span class="hud-title"><span class="live-dot"></span>SIMULATION · checkout_collapse</span>
-          <span id="hudClock" class="hud-clock">T+0s</span>
-          <button id="hudClose" class="hud-close">×</button>
-        </div>
-        <div id="hudTrack" class="hud-track"></div>
-        <div id="hudNow" class="hud-now">initializing…</div>
-        <div class="hud-affected"><span class="lbl">cascading through</span><span id="hudChips" style="display:contents"></span></div>
-      </div>
     </div>
 
     <div class="rail">
@@ -338,23 +332,12 @@ const tip = document.getElementById("tip");
 const REPULSION = 11000, SPRING = 0.018, REST = 95, GRAVITY = 0.016, DAMP = 0.85;
 
 let nodes = [], links = [], nodeById = {};
-let selectedId = null, focusSet = null;
+let selectedId = null, focusSet = null, focusMode = true;
 let live = true, pollTimer = null, alpha = 1;
 let W = 0, H = 0, splCatalog = {}, lastServiceSpl = null, lastServiceName = null;
 
 const stateColor = {healthy:"var(--green)", degraded:"var(--amber)", critical:"var(--red)"};
 
-const SCENARIO = {
-  inject_speed: 12, inject_duration: 90,
-  phases: [
-    {name:"feature-store-db saturation", start:0,   end:900, newly:["feature-store-db","feature-store"]},
-    {name:"fraud-scoring timeouts",      start:240, end:900, newly:["fraud-scoring"]},
-    {name:"checkout-api 5xx collapse",   start:360, end:900, newly:["checkout-api"]},
-    {name:"POS offline · ap-south-1",    start:480, end:900, newly:["pos-gateway"]},
-    {name:"incident INC raised",         start:540, end:560, newly:[]},
-    {name:"recovery deploy → hotfix",    start:780, end:900, newly:[]}
-  ]
-};
 
 async function fetchGraph(){
   const win = document.getElementById("windowSel").value;
@@ -378,7 +361,8 @@ function mergeGraph(d){
     if(nodeById[n.id]){
       const ex=nodeById[n.id];
       const changed = ex.state!==n.state || ex.error_rate!==n.error_rate;
-      Object.assign(ex,{error_rate:n.error_rate,state:n.state,calls_total:n.calls_total,label:n.label});
+      Object.assign(ex,{error_rate:n.error_rate,state:n.state,calls_total:n.calls_total,
+                        label:n.label,cpu:n.cpu,cpu_max:n.cpu_max});
       if(changed) ex._flash=performance.now();
     }else{
       const n2={...n,x:W/2+(Math.random()-.5)*200,y:H/2+(Math.random()-.5)*200,vx:0,vy:0};
@@ -390,7 +374,7 @@ function mergeGraph(d){
   document.getElementById("nodeCount").textContent=nodes.length;
   document.getElementById("edgeCount").textContent=links.length;
   alpha=Math.max(alpha,.5); buildSVG();
-  if(selectedId&&nodeById[selectedId]) applyFocus();
+  if(selectedId&&nodeById[selectedId]&&focusMode) applyFocus();
 }
 
 let defsAdded=false;
@@ -438,7 +422,7 @@ function buildSVG(){
     g.addEventListener("mouseenter",ev=>{showNodeTip(ev,n);hoverHighlight(n,true);});
     g.addEventListener("mousemove",moveTip);
     g.addEventListener("mouseleave",()=>{hideTip();hoverHighlight(n,false);});
-    g.addEventListener("click",ev=>{ev.stopPropagation();selectNode(n);});
+    g.addEventListener("click",ev=>{ev.stopPropagation(); if(dragMoved){dragMoved=false;return;} selectNode(n);});
     g.addEventListener("mousedown",ev=>startDrag(ev,n));
     n._el=g; n._core=c; n._dot=dot; n._ring=ring;
     gNodes.appendChild(g);
@@ -500,10 +484,12 @@ function hoverHighlight(n,on){
     n._ring.setAttribute("opacity","0.8");
   }else{ nodes.forEach(m=>m._el.style.opacity=1); links.forEach(e=>e._el.style.opacity=1); n._ring.setAttribute("opacity","0"); }
 }
-async function selectNode(n){
-  selectedId=n.id;
+async function selectNode(n,opts){
+  opts=opts||{};
+  selectedId=n.id; focusMode=(opts.focus!==false);
+  if(focusMode) applyFocus(); else clearFocusVisual();
   nodes.forEach(m=>m._ring.setAttribute("opacity",m.id===n.id?"1":"0"));
-  applyFocus(); showFocusBanner(n.label); switchTab("inspector");
+  showFocusBanner(n.label); switchTab("inspector");
   await loadServiceDetail(n.label);
 }
 function applyFocus(){
@@ -512,22 +498,30 @@ function applyFocus(){
   nodes.forEach(m=>m._el.style.opacity=focusSet.has(m.id)?1:0.18);
   links.forEach(e=>e._el.style.opacity=(e.source===selectedId||e.target===selectedId)?1:0.06);
 }
-function clearFocusVisual(){ nodes.forEach(m=>{m._el.style.opacity=1;m._ring.setAttribute("opacity","0");}); links.forEach(e=>e._el.style.opacity=1); }
-function clearSelection(){ selectedId=null;focusSet=null;clearFocusVisual();document.getElementById("focusBanner").classList.remove("show"); }
+function clearFocusVisual(){ nodes.forEach(m=>{m._el.style.opacity=1;}); links.forEach(e=>e._el.style.opacity=1); }
+function clearSelection(){ selectedId=null;focusSet=null;focusMode=true;clearFocusVisual();
+  nodes.forEach(m=>m._ring.setAttribute("opacity","0"));
+  document.getElementById("focusBanner").classList.remove("show"); }
 function showFocusBanner(label){ document.getElementById("focusText").textContent="focused: "+label; document.getElementById("focusBanner").classList.add("show"); }
 svg.addEventListener("click",()=>{clearSelection();renderInspectorEmpty();});
 
-let dragNode=null;
-function startDrag(ev,n){ dragNode=n;n.pinned=true;svg.classList.add("dragging");ev.stopPropagation(); }
-window.addEventListener("mousemove",ev=>{ if(!dragNode)return; const pt=svgPoint(ev);dragNode.x=pt.x;dragNode.y=pt.y;dragNode.vx=0;dragNode.vy=0;alpha=Math.max(alpha,.3); });
-window.addEventListener("mouseup",()=>{ if(dragNode){svg.classList.remove("dragging");dragNode=null;} });
+let dragNode=null, dragStart=null, dragMoved=false;
+function startDrag(ev,n){ dragNode=n; dragStart={x:ev.clientX,y:ev.clientY}; dragMoved=false; ev.stopPropagation(); }
+window.addEventListener("mousemove",ev=>{ if(!dragNode)return;
+  if(dragStart && Math.hypot(ev.clientX-dragStart.x,ev.clientY-dragStart.y)>4){
+    dragMoved=true; dragNode.pinned=true; svg.classList.add("dragging");
+    const pt=svgPoint(ev); dragNode.x=pt.x; dragNode.y=pt.y; dragNode.vx=0; dragNode.vy=0; alpha=Math.max(alpha,.3);
+  }});
+window.addEventListener("mouseup",()=>{ if(dragNode){svg.classList.remove("dragging");dragNode=null;dragStart=null;} });
 function svgPoint(ev){ const r=svg.getBoundingClientRect(); return {x:ev.clientX-r.left,y:ev.clientY-r.top}; }
 
 function showNodeTip(ev,n){
   const inDeg=links.filter(e=>e.target===n.id).length, outDeg=links.filter(e=>e.source===n.id).length;
+  const cpu=(n.cpu!=null)?n.cpu:null;
   tip.innerHTML=`<div class="t-name"><span style="width:8px;height:8px;border-radius:50%;background:${stateColor[n.state]}"></span>${n.label}</div>
     <div class="t-row"><span>state</span><b style="color:${stateColor[n.state]}">${n.state}</b></div>
     <div class="t-row"><span>error rate</span><b>${(n.error_rate*100).toFixed(2)}%</b></div>
+    ${cpu!=null?`<div class="t-row"><span>host cpu</span><b style="color:${cpu>90?'var(--red)':cpu>75?'var(--amber)':'var(--ink)'}">${cpu}%</b></div>`:''}
     <div class="t-row"><span>log volume</span><b>${fmt(n.calls_total)}</b></div>
     <div class="t-row"><span>dependencies</span><b>${inDeg} in · ${outDeg} out</b></div>
     <div class="t-hint">click → drill down + AI investigation</div>`;
@@ -544,7 +538,7 @@ function showEdgeTip(ev,e){
   moveTip(ev); tip.classList.add("show");
 }
 function moveTip(ev){ let x=ev.clientX+16,y=ev.clientY+16;
-  if(x+270>window.innerWidth)x=ev.clientX-270; if(y+160>window.innerHeight)y=ev.clientY-160;
+  if(x+270>window.innerWidth)x=ev.clientX-270; if(y+170>window.innerHeight)y=ev.clientY-170;
   tip.style.left=x+"px"; tip.style.top=y+"px"; }
 function hideTip(){ tip.classList.remove("show"); }
 
@@ -571,7 +565,7 @@ function renderInspector(d){
     <div class="metrics" style="margin-top:8px">
     <div class="metric"><div class="v">${Math.round(L.p50||0)}</div><div class="l">p50 ms</div></div>
     <div class="metric"><div class="v">${Math.round(L.p95||0)}</div><div class="l">p95 ms</div></div>
-    <div class="metric"><div class="v">${Math.round(L.avg_ms||0)}</div><div class="l">avg ms</div></div></div></div>`);
+    <div class="metric ${(node.cpu_max||0)>90?'alert':''}"><div class="v">${Math.round(node.cpu||0)}</div><div class="l">cpu %</div></div></div></div>`);
   if(d.upstream&&d.upstream.length){ h.push(`<div class="card"><div class="card-h">⬆ called by (upstream)</div>`);
     d.upstream.forEach(u=>h.push(depRow(u.service,`${fmt(u.calls)} calls · ${Math.round(u.avg_ms)}ms`))); h.push(`</div>`); }
   if(d.downstream&&d.downstream.length){ h.push(`<div class="card"><div class="card-h">⬇ depends on (downstream)</div>`);
@@ -645,79 +639,13 @@ function renderSPL(){
     navigator.clipboard.writeText(b.dataset.q).then(()=>{b.textContent="copied";setTimeout(()=>b.textContent="copy",1200);});
   }));
 }
-function splBlock(name,q,live){
+function splBlock(name,q,liveBadge){
   if(!q) return "";
-  return `<div class="spl-block"><div class="spl-name">${name}${live?'<span class="spl-live-badge">live</span>':''}<button class="spl-copy" data-q="${esc(q)}">copy</button></div><pre class="spl">${hlSPL(q)}</pre></div>`;
+  return `<div class="spl-block"><div class="spl-name">${name}${liveBadge?'<span class="spl-live-badge">live</span>':''}<button class="spl-copy" data-q="${esc(q)}">copy</button></div><pre class="spl">${hlSPL(q)}</pre></div>`;
 }
 function hlSPL(q){ return esc(q)
   .replace(/\b(index|sourcetype|stats|eval|where|sort|table|rename|head|timechart|by|as|count|sum|avg|perc\d+|span|limit)\b/g,'<span class="kw">$1</span>')
   .replace(/(&quot;[^&]*?&quot;)/g,'<span class="str">$1</span>'); }
-
-let hudTimer=null, hudStopTimer=null;
-async function injectCascade(){
-  const btn=document.getElementById("injectBtn"); btn.disabled=true; btn.textContent="⚡ injecting…";
-  try{
-    const r=await fetch(`${API}/api/simulate?speed=${SCENARIO.inject_speed}&duration=${SCENARIO.inject_duration}`,{method:"POST"});
-    const d=await r.json();
-    if(d.status==="started"){
-      toast(`Cascade injecting (${d.duration_s}s @ ${d.speed}× sim-time) — watch it propagate`,"ok");
-      if(!live) toggleLive();
-      startHUD(d.speed||SCENARIO.inject_speed); fastPollDuring(d.duration_s||90);
-    }else if(d.status==="already_running"){ toast("A simulation is already running.","warn"); startHUD(SCENARIO.inject_speed); }
-    else if(d.status==="unavailable"){ toast("Live injection needs HELIX_HEC_TOKEN in backend env — projected mode.","warn"); startHUD(SCENARIO.inject_speed); projectedCascade(); }
-    else{ toast(d.reason||"Could not start injection — projected mode.","warn"); startHUD(SCENARIO.inject_speed); projectedCascade(); }
-  }catch(e){ toast("Backend unreachable — projected cascade.","warn"); startHUD(SCENARIO.inject_speed); projectedCascade(); }
-  setTimeout(()=>{btn.disabled=false;btn.textContent="⚡ Inject checkout_collapse";},4000);
-}
-function startHUD(speed){
-  const hud=document.getElementById("hud"); hud.classList.add("show");
-  const track=document.getElementById("hudTrack");
-  track.innerHTML=SCENARIO.phases.map((p,i)=>`<div class="ph" data-i="${i}" title="${p.name}"></div>`).join("");
-  document.getElementById("hudChips").innerHTML="";
-  const affected=new Set();
-  const t0=performance.now();
-  if(hudTimer) clearInterval(hudTimer);
-  if(hudStopTimer){clearTimeout(hudStopTimer);hudStopTimer=null;}
-  hudTimer=setInterval(()=>{
-    const realSec=(performance.now()-t0)/1000, simSec=realSec*speed;
-    document.getElementById("hudClock").textContent=`T+${Math.round(simSec)}s sim · ${Math.round(realSec)}s real`;
-    let current=null;
-    SCENARIO.phases.forEach((p,i)=>{
-      const seg=track.querySelector(`.ph[data-i="${i}"]`); if(!seg) return;
-      if(simSec>=p.end){ seg.className="ph done"; }
-      else if(simSec>=p.start){ seg.className="ph active"; current=p;
-        p.newly.forEach(s=>{ if(!affected.has(s)){ affected.add(s); addChip(s); } });
-      } else { seg.className="ph"; }
-    });
-    const last=SCENARIO.phases[SCENARIO.phases.length-1];
-    document.getElementById("hudNow").innerHTML = current
-      ? `<b>Phase ${SCENARIO.phases.indexOf(current)+1}/${SCENARIO.phases.length}</b> — ${current.name}`
-      : (simSec>last.end ? `<b style="color:var(--green)">recovered</b> — cascade resolved by hotfix deploy`
-                         : "initializing…");
-    if(simSec > last.end + 60) stopHUDsoon();
-  },250);
-}
-function addChip(svc){
-  const chips=document.getElementById("hudChips");
-  const c=document.createElement("span"); c.className="chip"; c.textContent=svc;
-  chips.appendChild(c); requestAnimationFrame(()=>c.classList.add("show"));
-}
-function stopHUDsoon(){ if(hudStopTimer) return; hudStopTimer=setTimeout(closeHUD,4000); }
-function closeHUD(){ document.getElementById("hud").classList.remove("show"); if(hudTimer){clearInterval(hudTimer);hudTimer=null;} if(hudStopTimer){clearTimeout(hudStopTimer);hudStopTimer=null;} }
-function fastPollDuring(seconds){ stopPolling(); pollTimer=setInterval(fetchGraph,2000); setTimeout(()=>{ if(live) startPolling(); },seconds*1000); }
-
-function projectedCascade(){
-  const origin=nodeById["svc:feature-store-db"]||nodes.find(n=>n.label.includes("feature-store"))||nodes[0];
-  if(!origin) return;
-  const rev={}; links.forEach(e=>{(rev[e.target]=rev[e.target]||[]).push(e.source);});
-  let layer=[origin.id],seen=new Set([origin.id]),delay=0;
-  const hit=id=>{const n=nodeById[id];if(n){n.state="critical";n.error_rate=Math.max(n.error_rate,.35);n._flash=performance.now();}};
-  while(layer.length){ const cur=layer; layer=[];
-    setTimeout(()=>cur.forEach(hit),delay);
-    cur.forEach(id=>(rev[id]||[]).forEach(p=>{if(!seen.has(p)){seen.add(p);layer.push(p);}}));
-    delay+=850;
-  }
-}
 
 function toggleLive(){ live=!live; const b=document.getElementById("liveBtn");
   b.classList.toggle("on",live); b.textContent=live?"● Live":"❚❚ Paused";
@@ -744,10 +672,8 @@ window.runInvestigation=runInvestigation;
 
 document.getElementById("liveBtn").addEventListener("click",toggleLive);
 document.getElementById("refreshBtn").addEventListener("click",fetchGraph);
-document.getElementById("injectBtn").addEventListener("click",injectCascade);
 document.getElementById("windowSel").addEventListener("change",fetchGraph);
 document.getElementById("clearFocus").addEventListener("click",()=>{clearSelection();renderInspectorEmpty();});
-document.getElementById("hudClose").addEventListener("click",closeHUD);
 document.querySelectorAll(".rail-tab").forEach(t=>t.addEventListener("click",()=>switchTab(t.dataset.tab)));
 window.addEventListener("resize",resize);
 

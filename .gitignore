@@ -1,9 +1,14 @@
-# Ignore virtual environment files
+# Python
 .venv/
-# Ignore compiled Python files
+__pycache__/
 *.pyc
-__pycache__
-backend/__pycache__
-/data/*.jsonl
-*.jsonl
 
+# generated data + runtime state
+data/
+*.jsonl
+.helix.env
+.helix.backend.pid
+backend.log
+
+# OS
+.DS_Store
